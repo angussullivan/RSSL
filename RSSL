@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservoir St Self Service Laundry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ocean: #1B4965;
+            --sky: #5FA8D3;
+            --foam: #BEE9E8;
+            --clean: #F0F7F4;
+            --crisp: #FFFFFF;
+            --warm: #CAD2C5;
+            --accent: #62B6CB;
+            --dark: #0B2838;
+            --gold: #D4A574;
+            --text: #2C3E50;
+            --text-light: #5D7285;
+        }
+
+```
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: 'DM Sans', sans-serif;
+        color: var(--text);
+        background: var(--clean);
+        overflow-x: hidden;
+    }
+
+    /* ─── NAVIGATION ─── */
+    nav {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 1000;
+        background: rgba(27, 73, 101, 0.95);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        transition: all 0.4s ease;
+    }
+
+    nav.scrolled {
+        background: rgba(11, 40, 56, 0.98);
+        box-shadow: 0 4px 30px rgba(0,0,0,0.15);
+    }
+
+    .nav-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 64px;
+    }
+
+    .nav-logo {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--crisp);
+        letter-spacing: 0.5px;
+    }
+
+    .nav-logo span {
+        color: var(--accent);
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+        list-style: none;
+    }
+
+    .nav-links a {
+        color: rgba(255,255,255,0.75);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 500;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        transition: color 0.3s;
+        position: relative;
+    }
+
+    .nav-links a::after {
+        content: '';
+        position: absolute;
+        bottom: -4px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--accent);
+        transition: width 0.3s;
+    }
+
+    .nav-links a:hover {
+        color: var(--crisp);
+    }
+
+    .nav-links a:hover::after {
+        width: 100%;
+    }
+
+    .hamburger {
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        cursor: pointer;
+        padding: 8px;
+    }
+
+    .hamburger span {
+        width: 24px;
+        height: 2px;
+        background: var(--crisp);
+        transition: all 0.3s;
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: linear-gradient(165deg, var(--ocean) 0%, var(--dark) 50%, #163B52 100%);
+        overflow: hidden;
+    }
+
+    .hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 800px;
+        height: 800px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(98, 182, 203, 0.12) 0%, transparent 70%);
+        animation: float 8s ease-in-out infinite;
+    }
+
+    .hero::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -10%;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(95, 168, 211, 0.08) 0%, transparent 70%);
+        animation: float 10s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0) scale(1); }
+        50% { transform: translateY(-40px) scale(1.05); }
+    }
+
+    /* Bubbles decoration */
+    .bubbles {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .bubble {
+        position: absolute;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 50%;
+        animation: rise linear infinite;
+    }
+
+    @keyframes rise {
+        0% { transform: translateY(100vh) scale(0); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+    }
+
+    .hero-content {
+        text-align: center;
+        position: relative;
+        z-index: 2;
+        padding: 0 24px;
+        animation: fadeUp 1s ease-out;
+    }
+
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-tag {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(98, 182, 203, 0.15);
+        border: 1px solid rgba(98, 182, 203, 0.3);
+        border-radius: 100px;
+        color: var(--accent);
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        margin-bottom: 28px;
+    }
+
+    .hero h1 {
+        font-family: 'Playfair Display', serif;
+        font-size: clamp(2.8rem, 6vw, 5rem);
+        font-weight: 800;
+        color: var(--crisp);
+        line-height: 1.1;
+        margin-bottom: 20px;
+    }
+
+    .hero h1 em {
+        font-style: italic;
+        color: var(--accent);
+    }
+
+    .hero p {
+        font-size: 1.15rem;
+        color: rgba(255,255,255,0.6);
+        max-width: 500px;
+        margin: 0 auto 40px;
+        line-height: 1.7;
+        font-weight: 300;
+    }
+
+    .hero-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 36px;
+        background: var(--accent);
+        color: var(--crisp);
+        border: none;
+        border-radius: 100px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 20px rgba(98, 182, 203, 0.3);
+    }
+
+    .hero-cta:hover {
+        background: #52a6bb;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(98, 182, 203, 0.4);
+    }
+
+    .hero-cta svg {
+        width: 18px;
+        height: 18px;
+        transition: transform 0.3s;
+    }
+
+    .hero-cta:hover svg {
+        transform: translateX(4px);
+    }
+
+    .scroll-indicator {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 2;
+        animation: bounce 2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+        0%, 100% { transform: translateX(-50%) translateY(0); }
+        50% { transform: translateX(-50%) translateY(10px); }
+    }
+
+    .scroll-indicator svg {
+        width: 24px;
+        height: 24px;
+        color: rgba(255,255,255,0.3);
+    }
+
+    /* ─── SECTIONS COMMON ─── */
+    section {
+        padding: 100px 24px;
+    }
+
+    .section-inner {
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .section-label {
+        display: inline-block;
+        padding: 6px 16px;
+        background: rgba(98, 182, 203, 0.1);
+        border: 1px solid rgba(98, 182, 203, 0.2);
+        border-radius: 100px;
+        color: var(--sky);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+    }
+
+    .section-title {
+        font-family: 'Playfair Display', serif;
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 700;
+        color: var(--ocean);
+        line-height: 1.2;
+        margin-bottom: 16px;
+    }
+
+    .section-subtitle {
+        font-size: 1.05rem;
+        color: var(--text-light);
+        max-width: 600px;
+        line-height: 1.7;
+        margin-bottom: 48px;
+    }
+
+    /* ─── ABOUT US ─── */
+    #about {
+        background: var(--crisp);
+    }
+
+    .about-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: start;
+        margin-top: 48px;
+    }
+
+    .about-text p {
+        font-size: 1rem;
+        line-height: 1.8;
+        color: var(--text-light);
+        margin-bottom: 24px;
+    }
+
+    .info-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .info-card {
+        padding: 28px 30px;
+        background: var(--clean);
+        border-radius: 16px;
+        border: 1px solid rgba(27, 73, 101, 0.06);
+        transition: all 0.3s;
+    }
+
+    .info-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(27, 73, 101, 0.08);
+    }
+
+    .info-card-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent), var(--sky));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+
+    .info-card-icon svg {
+        width: 22px;
+        height: 22px;
+        color: white;
+    }
+
+    .info-card h4 {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--ocean);
+        margin-bottom: 8px;
+    }
+
+    .info-card p {
+        font-size: 0.9rem;
+        color: var(--text-light);
+        line-height: 1.6;
+    }
+
+    .info-card a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s;
+    }
+
+    .info-card a:hover {
+        color: var(--ocean);
+    }
+
+    /* Photo placeholders */
+    .photo-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .photo-placeholder {
+        aspect-ratio: 4/3;
+        background: linear-gradient(135deg, var(--foam), var(--warm));
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: var(--ocean);
+        font-size: 0.8rem;
+        font-weight: 500;
+        opacity: 0.7;
+        border: 2px dashed rgba(27,73,101,0.15);
+    }
+
+    .photo-placeholder:first-child {
+        grid-column: 1 / -1;
+        aspect-ratio: 16/9;
+    }
+
+    .photo-placeholder svg {
+        width: 32px;
+        height: 32px;
+        opacity: 0.5;
+    }
+
+    /* Busy times placeholder */
+    .busy-times-box {
+        margin-top: 32px;
+        padding: 24px;
+        background: var(--clean);
+        border-radius: 16px;
+        border: 1px solid rgba(27, 73, 101, 0.06);
+    }
+
+    .busy-times-box h4 {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--ocean);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .busy-times-placeholder {
+        width: 100%;
+        min-height: 160px;
+        background: linear-gradient(135deg, var(--foam), #e0eee6);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: var(--ocean);
+        font-size: 0.8rem;
+        font-weight: 500;
+        opacity: 0.7;
+        border: 2px dashed rgba(27,73,101,0.15);
+    }
+
+    /* ─── INSTRUCTIONS ─── */
+    #instructions {
+        background: var(--clean);
+    }
+
+    .lang-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 36px;
+        flex-wrap: wrap;
+    }
+
+    .lang-tab {
+        padding: 10px 24px;
+        border: 2px solid rgba(27, 73, 101, 0.12);
+        background: var(--crisp);
+        border-radius: 100px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-light);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .lang-tab:hover, .lang-tab.active {
+        background: var(--ocean);
+        border-color: var(--ocean);
+        color: var(--crisp);
+    }
+
+    .instruction-content {
+        background: var(--crisp);
+        border-radius: 20px;
+        padding: 48px;
+        border: 1px solid rgba(27, 73, 101, 0.06);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    }
+
+    .instruction-placeholder {
+        min-height: 300px;
+        background: linear-gradient(135deg, var(--foam), var(--warm));
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: var(--ocean);
+        font-size: 0.9rem;
+        font-weight: 500;
+        opacity: 0.7;
+        border: 2px dashed rgba(27,73,101,0.15);
+    }
+
+    .instruction-placeholder svg {
+        width: 48px;
+        height: 48px;
+        opacity: 0.4;
+    }
+
+    .cash-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #f5e6d3, #ecdbc8);
+        border-radius: 12px;
+        color: #8B6914;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-top: 24px;
+        border: 1px solid rgba(139, 105, 20, 0.15);
+    }
+
+    .cash-badge svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* ─── PRICING ─── */
+    #pricing {
+        background: linear-gradient(165deg, var(--ocean) 0%, var(--dark) 100%);
+        position: relative;
+        overflow: hidden;
+    }
+
+    #pricing::before {
+        content: '';
+        position: absolute;
+        top: -200px;
+        right: -100px;
+        width: 500px;
+        height: 500px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(98, 182, 203, 0.08) 0%, transparent 70%);
+    }
+
+    #pricing .section-label {
+        background: rgba(98, 182, 203, 0.15);
+        border-color: rgba(98, 182, 203, 0.25);
+    }
+
+    #pricing .section-title {
+        color: var(--crisp);
+    }
+
+    #pricing .section-subtitle {
+        color: rgba(255,255,255,0.5);
+    }
+
+    .pricing-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        max-width: 700px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .price-card {
+        background: rgba(255,255,255,0.06);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 24px;
+        padding: 44px 36px;
+        text-align: center;
+        transition: all 0.4s;
+    }
+
+    .price-card:hover {
+        background: rgba(255,255,255,0.1);
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    }
+
+    .price-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--sky));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+    }
+
+    .price-icon svg {
+        width: 30px;
+        height: 30px;
+        color: white;
+    }
+
+    .price-card h3 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--crisp);
+        margin-bottom: 8px;
+    }
+
+    .price-amount {
+        font-size: 3rem;
+        font-weight: 700;
+        color: var(--accent);
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .price-amount sup {
+        font-size: 1.5rem;
+        vertical-align: super;
+    }
+
+    .price-duration {
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.45);
+        margin-bottom: 20px;
+    }
+
+    .price-note {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.3);
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ─── CONTACT ─── */
+    #contact {
+        background: var(--crisp);
+    }
+
+    .contact-box {
+        background: var(--clean);
+        border-radius: 24px;
+        padding: 60px;
+        display: flex;
+        align-items: center;
+        gap: 60px;
+        border: 1px solid rgba(27, 73, 101, 0.06);
+    }
+
+    .contact-info {
+        flex: 1;
+    }
+
+    .contact-info h3 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: var(--ocean);
+        margin-bottom: 12px;
+    }
+
+    .contact-info p {
+        font-size: 1rem;
+        color: var(--text-light);
+        line-height: 1.7;
+        margin-bottom: 28px;
+    }
+
+    .contact-phone {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 28px;
+        background: var(--crisp);
+        border-radius: 16px;
+        border: 1px solid rgba(27, 73, 101, 0.08);
+        margin-bottom: 12px;
+    }
+
+    .contact-phone-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent), var(--sky));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .contact-phone-icon svg {
+        width: 22px;
+        height: 22px;
+        color: white;
+    }
+
+    .contact-phone-text {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .contact-phone-text span {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--ocean);
+        letter-spacing: 1px;
+    }
+
+    .contact-phone-text small {
+        font-size: 0.8rem;
+        color: var(--text-light);
+        font-weight: 500;
+    }
+
+    .message-only-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background: #FFF3E0;
+        border: 1px solid #FFCC80;
+        border-radius: 8px;
+        color: #E65100;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .contact-visual {
+        flex: 0 0 280px;
+        height: 280px;
+        background: linear-gradient(135deg, var(--foam), var(--accent));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .contact-visual::before {
+        content: '';
+        position: absolute;
+        inset: -12px;
+        border-radius: 50%;
+        border: 2px dashed rgba(98, 182, 203, 0.25);
+        animation: spin 20s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .contact-visual svg {
+        width: 80px;
+        height: 80px;
+        color: var(--ocean);
+        opacity: 0.5;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+        background: var(--dark);
+        padding: 40px 24px;
+        text-align: center;
+    }
+
+    footer p {
+        color: rgba(255,255,255,0.3);
+        font-size: 0.85rem;
+    }
+
+    footer a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+    /* ─── MOBILE ─── */
+    @media (max-width: 768px) {
+        .hamburger {
+            display: flex;
+        }
+
+        .nav-links {
+            display: none;
+            position: absolute;
+            top: 64px;
+            left: 0;
+            right: 0;
+            background: rgba(11, 40, 56, 0.98);
+            flex-direction: column;
+            padding: 20px 24px;
+            gap: 16px;
+        }
+
+        .nav-links.open {
+            display: flex;
+        }
+
+        .about-grid {
+            grid-template-columns: 1fr;
+            gap: 40px;
+        }
+
+        .pricing-grid {
+            grid-template-columns: 1fr !important;
+        }
+
+        .contact-box {
+            flex-direction: column;
+            padding: 40px 28px;
+            text-align: center;
+        }
+
+        .contact-visual {
+            flex: none;
+            width: 200px;
+            height: 200px;
+            order: -1;
+        }
+
+        .instruction-content {
+            padding: 28px;
+        }
+
+        .photo-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .photo-placeholder:first-child {
+            grid-column: 1;
+        }
+    }
+
+    /* ─── TRANSLATED INSTRUCTIONS ─── */
+    .translated-instructions h3 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--ocean);
+        margin-bottom: 32px;
+        text-align: center;
+    }
+
+    .instr-block {
+        margin-bottom: 36px;
+        padding-bottom: 36px;
+        border-bottom: 1px solid rgba(27, 73, 101, 0.08);
+    }
+
+    .instr-block:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .instr-block h4 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--ocean);
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--accent);
+        display: inline-block;
+    }
+
+    .instr-step {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 16px;
+        padding: 16px 20px;
+        background: var(--clean);
+        border-radius: 12px;
+        line-height: 1.7;
+        font-size: 0.95rem;
+        color: var(--text);
+    }
+
+    .instr-step.highlight {
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        border: 1px solid rgba(76, 175, 80, 0.2);
+    }
+
+    .instr-step.highlight strong {
+        color: #2E7D32;
+    }
+
+    .step-num {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--ocean);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-top: 2px;
+    }
+
+    .instr-step ul {
+        list-style: none;
+        padding: 0;
+        margin-top: 6px;
+    }
+
+    .instr-step ul li {
+        padding-left: 16px;
+        position: relative;
+        margin-bottom: 4px;
+    }
+
+    .instr-step ul li::before {
+        content: '•';
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: bold;
+    }
+
+    .instr-step em {
+        color: var(--text-light);
+        font-size: 0.88rem;
+    }
+
+    /* ─── SCROLL ANIMATIONS ─── */
+    .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+</style>
+```
+
+</head>
+<body>
+
+```
+<!-- Navigation -->
+<nav id="navbar">
+    <div class="nav-inner">
+        <div class="nav-logo"><img src="IMG_7178.jpeg" alt="Reservoir St Self Service Laundry Logo" style="height:44px; width:auto; margin-right:10px; vertical-align:middle; border-radius:50%;">Reservoir St <span>Laundry</span></div>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#about">About</a></li>
+            <li><a href="#instructions">How To Use</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#contact">Contact</a></li>
+        </ul>
+        <div class="hamburger" id="hamburger" onclick="toggleNav()">
+            <span></span><span></span><span></span>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="bubbles" id="bubbles"></div>
+    <div class="hero-content">
+        <img src="IMG_7178.jpeg" alt="Reservoir St Self Service Laundry" style="width:140px; height:140px; border-radius:50%; margin-bottom:28px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); border: 3px solid rgba(255,255,255,0.15);">
+        <div class="hero-tag">Reservoir St Self Service Laundry • Surry Hills</div>
+        <h1>Fresh &amp; <em>Clean</em>,<br>Every Time</h1>
+        <p>Self-service wash and dry in the heart of Surry Hills. Simple, affordable, and always ready when you are. Free WiFi available.</p>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:36px;">
+            <span style="padding:8px 18px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:100px; font-size:0.8rem; color:rgba(255,255,255,0.7);">多语言使用说明 · 适合国际旅客</span>
+            <span style="padding:8px 18px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:100px; font-size:0.8rem; color:rgba(255,255,255,0.7);">多言語対応 · 海外からのお客様歓迎</span>
+            <span style="padding:8px 18px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:100px; font-size:0.8rem; color:rgba(255,255,255,0.7);">다국어 안내 · 외국인 방문자 환영</span>
+        </div>
+        <a href="#about" class="hero-cta">
+            Learn More
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+        </a>
+    </div>
+    <div class="scroll-indicator">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+    </div>
+</section>
+
+<!-- About Us -->
+<section id="about">
+    <div class="section-inner">
+        <div class="section-label reveal">About Us</div>
+        <h2 class="section-title reveal">Your Neighbourhood<br>Laundry</h2>
+        <p class="section-subtitle reveal">Reservoir St Self Service Laundry is a convenient self-service laundromat located right in the heart of Surry Hills. Walk in, wash, dry, and go — it's that easy.</p>
+
+        <div class="about-grid">
+            <div class="about-text">
+                <p class="reveal">We provide a clean, well-maintained self-service laundry where you can take care of your washing and drying needs on your own schedule. No bookings required — just bring your laundry and we'll have you sorted.</p>
+                <p class="reveal">Our machines are commercial-grade, easy to operate, and we keep the space tidy so your experience is always a pleasant one.</p>
+
+                <div class="info-cards">
+                    <div class="info-card reveal">
+                        <div class="info-card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <h4>Hours of Operation</h4>
+                        <p>Open <strong>7 days a week</strong><br>6:00 AM – 12:00 AM (Midnight)</p>
+                    </div>
+
+                    <div class="info-card reveal">
+                        <div class="info-card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </div>
+                        <h4>Location</h4>
+                        <p>67A Reservoir Street, Surry Hills, NSW 2010<br><a href="https://www.google.com/maps/search/?api=1&query=67A+Reservoir+Street+Surry+Hills+NSW+2010" target="_blank" rel="noopener">Open in Google Maps →</a></p>
+                    </div>
+
+                    <div class="info-card reveal">
+                        <div class="info-card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                        <h4>What We Offer</h4>
+                        <p>Self-service <strong>wash &amp; dry</strong> only. Contactless tap payment at our machines. Laundry powder available on-site for <strong>$2 per pack</strong> (one pack per wash). <strong>Free WiFi</strong> available.</p>
+                    </div>
+
+                    <div class="info-card reveal">
+                        <div class="info-card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z"/></svg>
+                        </div>
+                        <h4>Free WiFi</h4>
+                        <p>Complimentary WiFi available while you wait. Browse, stream, or catch up on emails while your laundry runs.</p>
+                    </div>
+
+                    <div class="info-card reveal">
+                        <div class="info-card-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802"/></svg>
+                        </div>
+                        <h4>Multilingual Instructions</h4>
+                        <p>Machine guides available in <strong>English, 中文, 日本語 &amp; 한국어</strong>. Perfect for international visitors.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <!-- Photo placeholders for user to replace -->
+                <div class="photo-grid reveal">
+                    <div class="photo-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        Your building photo here
+                    </div>
+                    <div class="photo-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        Inside photo
+                    </div>
+                    <div class="photo-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg>
+                        Machines photo
+                    </div>
+                </div>
+
+                <!-- Busy times placeholder -->
+                <div class="busy-times-box reveal">
+                    <h4>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        Busy Times
+                    </h4>
+                    <p style="font-size:0.9rem; color:var(--text-light); margin-bottom:16px;">Plan your visit — see when we're busiest so you can avoid the queues.</p>
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <img src="IMG_7180.jpeg" alt="Busyness by Hour of Day" style="width:100%; border-radius:12px; border:1px solid rgba(27,73,101,0.08);">
+                        <img src="IMG_7179.jpeg" alt="Busyness by Day of Week" style="width:100%; border-radius:12px; border:1px solid rgba(27,73,101,0.08);">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Instructions -->
+<section id="instructions">
+    <div class="section-inner">
+        <div class="section-label reveal">How To Use</div>
+        <h2 class="section-title reveal">Machine Instructions</h2>
+        <p class="section-subtitle reveal">Easy-to-follow guides for our wash and dry machines, available in multiple languages.</p>
+
+        <div class="lang-tabs reveal">
+            <button class="lang-tab active" onclick="switchLang(this, 'en')">🇬🇧 English</button>
+            <button class="lang-tab" onclick="switchLang(this, 'zh')">🇨🇳 中文</button>
+            <button class="lang-tab" onclick="switchLang(this, 'ja')">🇯🇵 日本語</button>
+            <button class="lang-tab" onclick="switchLang(this, 'ko')">🇰🇷 한국어</button>
+        </div>
+
+        <div class="instruction-content reveal">
+            <div id="lang-en" class="lang-content" style="display: block;">
+                <img src="IMG_7177.jpeg" alt="Washer and Dryer Instructions in English" style="width:100%; border-radius:12px;">
+            </div>
+            <div id="lang-zh" class="lang-content" style="display: none;">
+                <div class="translated-instructions">
+                    <h3>请阅读使用说明</h3>
+
+                    <div class="instr-block">
+                        <h4>洗衣机使用说明</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div>
+                                <strong>使用触摸屏付款</strong>
+                                <ul>
+                                    <li>触摸屏幕 — 屏幕会变白</li>
+                                    <li>进行非接触式付款（感应支付）</li>
+                                    <li>等待绿色勾号 — 确认付款成功</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>选择洗涤模式</strong> — 强力洗（Powerwash）、普通洗（Normal）或 轻柔洗（Delicate）</div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">3</div>
+                            <div><strong>加入洗衣粉</strong> — 拉出标有 "MAYTAG" 的抽屉</div>
+                        </div>
+                        <div class="instr-step highlight">
+                            <div class="step-num">4</div>
+                            <div><strong>按下绿色按钮 开始洗涤</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="instr-block">
+                        <h4>烘干机使用说明</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div><strong>选择烘干模式</strong> — 强力烘干（Heavy Duty）、普通烘干（Normal）或 轻柔烘干（Delicate）<br><em>毛巾请使用强力烘干模式</em></div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>关上门</strong> — 机器会自动启动<br><em>注意：您可以随时打开门来停止烘干机。如需重新启动，只需重新选择烘干模式即可。</em></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="lang-ja" class="lang-content" style="display: none;">
+                <div class="translated-instructions">
+                    <h3>ご利用案内をお読みください</h3>
+
+                    <div class="instr-block">
+                        <h4>洗濯機の使い方</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div>
+                                <strong>タッチスクリーンでお支払い</strong>
+                                <ul>
+                                    <li>画面をタッチ — 画面が白くなります</li>
+                                    <li>非接触型決済（タッチ決済）でお支払い</li>
+                                    <li>緑のチェックマークが表示されるまでお待ちください — 支払い確認完了</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>洗濯コースを選択</strong> — パワーウォッシュ（Powerwash）、通常（Normal）、またはデリケート（Delicate）</div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">3</div>
+                            <div><strong>洗剤を入れる</strong> — 「MAYTAG」と書かれた引き出しを引き出してください</div>
+                        </div>
+                        <div class="instr-step highlight">
+                            <div class="step-num">4</div>
+                            <div><strong>緑のボタンを押してスタート</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="instr-block">
+                        <h4>乾燥機の使い方</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div><strong>乾燥コースを選択</strong> — ヘビーデューティー（Heavy Duty）、通常（Normal）、またはデリケート（Delicate）<br><em>タオルにはヘビーデューティーをお使いください</em></div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>ドアを閉める</strong> — 自動的にスタートします<br><em>注意：ドアを開ければいつでも停止できます。再開するには、乾燥コースを再度選択してください。</em></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="lang-ko" class="lang-content" style="display: none;">
+                <div class="translated-instructions">
+                    <h3>사용 설명서를 반드시 읽어주세요</h3>
+
+                    <div class="instr-block">
+                        <h4>세탁기 사용법</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div>
+                                <strong>터치스크린으로 결제</strong>
+                                <ul>
+                                    <li>화면을 터치하세요 — 화면이 하얗게 변합니다</li>
+                                    <li>비접촉 결제（탭 결제）를 하세요</li>
+                                    <li>초록색 체크 표시가 나올 때까지 기다리세요 — 결제 확인 완료</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>세탁 코스 선택</strong> — 강력 세탁（Powerwash）, 일반（Normal）, 또는 섬세（Delicate）</div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">3</div>
+                            <div><strong>세제 넣기</strong> — "MAYTAG"라고 적힌 서랍을 당겨 주세요</div>
+                        </div>
+                        <div class="instr-step highlight">
+                            <div class="step-num">4</div>
+                            <div><strong>초록색 버튼을 눌러 시작하세요</strong></div>
+                        </div>
+                    </div>
+
+                    <div class="instr-block">
+                        <h4>건조기 사용법</h4>
+                        <div class="instr-step">
+                            <div class="step-num">1</div>
+                            <div><strong>건조 코스 선택</strong> — 강력 건조（Heavy Duty）, 일반（Normal）, 또는 섬세（Delicate）<br><em>수건은 강력 건조를 사용하세요</em></div>
+                        </div>
+                        <div class="instr-step">
+                            <div class="step-num">2</div>
+                            <div><strong>문 닫기</strong> — 자동으로 시작됩니다<br><em>참고: 문을 열면 언제든지 건조기를 멈출 수 있습니다. 다시 시작하려면 건조 코스를 다시 선택하세요.</em></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cash-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z"/></svg>
+                Contactless Payment — Tap to pay at machines
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section id="pricing">
+    <div class="section-inner">
+        <div class="section-label reveal">Pricing</div>
+        <h2 class="section-title reveal">Simple, Fair Pricing</h2>
+        <p class="section-subtitle reveal">No hidden fees, no subscriptions. Just straightforward pricing for wash and dry.</p>
+
+        <div class="pricing-grid" style="grid-template-columns: repeat(3, 1fr); max-width: 900px;">
+            <div class="price-card reveal">
+                <div class="price-icon">
+                    <!-- Wash icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+                </div>
+                <h3>Wash</h3>
+                <div class="price-amount"><sup>$</sup>8</div>
+                <div class="price-duration">28 minutes per cycle</div>
+                <div class="price-note">Contactless tap payment</div>
+            </div>
+
+            <div class="price-card reveal">
+                <div class="price-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1A3.75 3.75 0 0012 18z"/></svg>
+                </div>
+                <h3>Dry</h3>
+                <div class="price-amount"><sup>$</sup>8</div>
+                <div class="price-duration">48 minutes per cycle</div>
+                <div class="price-note">Contactless tap payment</div>
+            </div>
+
+            <div class="price-card reveal">
+                <div class="price-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                </div>
+                <h3>Laundry Powder</h3>
+                <div class="price-amount"><sup>$</sup>2</div>
+                <div class="price-duration">per pack</div>
+                <div class="price-note">One pack per wash • available on-site</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact -->
+<section id="contact">
+    <div class="section-inner">
+        <div class="section-label reveal">Get In Touch</div>
+        <h2 class="section-title reveal">Contact Us</h2>
+        <p class="section-subtitle reveal">Got a question? Drop us a text and we'll get back to you.</p>
+
+        <div class="contact-box reveal">
+            <div class="contact-info">
+                <h3>Send Us a Message</h3>
+                <p>We're happy to help with any questions about our services, machines, or anything else. Please note we only accept <strong>text messages</strong> — no phone calls.</p>
+
+                <div class="contact-phone">
+                    <div class="contact-phone-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg>
+                    </div>
+                    <div class="contact-phone-text">
+                        <span>0447 488 879</span>
+                        <small>Text / SMS only</small>
+                    </div>
+                </div>
+
+                <div class="contact-phone">
+                    <div class="contact-phone-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg>
+                    </div>
+                    <div class="contact-phone-text">
+                        <span>0477 314 754</span>
+                        <small>Text / SMS only</small>
+                    </div>
+                </div>
+
+                <div class="message-only-badge">
+                    ⚠️ MESSAGE ONLY — No phone calls please
+                </div>
+            </div>
+
+            <div class="contact-visual">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer>
+    <p>&copy; 2025 Reservoir St Self Service Laundry · 67A Reservoir Street, Surry Hills NSW 2010 · <a href="https://www.google.com/maps/search/?api=1&query=67A+Reservoir+Street+Surry+Hills+NSW+2010" target="_blank" rel="noopener">Get Directions</a></p>
+</footer>
+
+<script>
+    // Mobile nav toggle
+    function toggleNav() {
+        document.getElementById('navLinks').classList.toggle('open');
+    }
+
+    // Close mobile nav on link click
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        link.addEventListener('click', () => {
+            document.getElementById('navLinks').classList.remove('open');
+        });
+    });
+
+    // Navbar scroll effect
+    window.addEventListener('scroll', () => {
+        document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // Language tab switching
+    function switchLang(btn, lang) {
+        document.querySelectorAll('.lang-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.lang-content').forEach(c => c.style.display = 'none');
+        document.getElementById('lang-' + lang).style.display = 'block';
+    }
+
+    // Scroll reveal
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Generate decorative bubbles
+    const bubblesContainer = document.getElementById('bubbles');
+    for (let i = 0; i < 15; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        const size = Math.random() * 80 + 20;
+        bubble.style.cssText = `
+            width: ${size}px;
+            height: ${size}px;
+            left: ${Math.random() * 100}%;
+            animation-duration: ${Math.random() * 8 + 8}s;
+            animation-delay: ${Math.random() * 5}s;
+        `;
+        bubblesContainer.appendChild(bubble);
+    }
+</script>
+```
+
+</body>
+</html>
