@@ -1,9 +1,10 @@
 // Fetches Airbnb iCal feeds for all 3 rooms and upserts upcoming bookings into Supabase.
-// Run daily via GitHub Actions.
+// If any booking with a check-in within the next 24h has changed, sends an alert email.
 
 import { createClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY } = process.env;
+const { SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
     process.exit(1);
@@ -17,9 +18,18 @@ const ROOMS = [
     { name: 'Room 3', url: 'https://www.airbnb.com.au/calendar/ical/1177136108707135736.ics?t=b47454515ace4873b3ee27c1adfc185f' },
 ];
 
+const EVERYONE = ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'];
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
 function parseDate(s) {
-    // s is YYYYMMDD
     return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+}
+
+function fmtDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return `${days[dt.getDay()]} ${d} ${MONTH_NAMES[m - 1]} ${y}`;
 }
 
 function parseIcal(text) {
@@ -42,17 +52,76 @@ function parseIcal(text) {
         if (dem) current.dtend   = dem[1];
     }
     return events.map(e => ({
-        uid:     e.uid,
-        summary: e.summary || '',
+        uid:      e.uid,
+        summary:  e.summary || '',
         checkin:  parseDate(e.dtstart),
         checkout: parseDate(e.dtend),
     }));
 }
 
-async function main() {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const allBookings = [];
+function buildAlertEmail(changes, todayStr, tomorrowStr) {
+    const rows = changes.map(c => {
+        const b = c.booking;
+        const when = b.checkin === todayStr ? 'Today' : 'Tomorrow';
+        let badge, detail;
+        if (c.type === 'new') {
+            badge = `<span style="background:#27AE60;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">NEW BOOKING</span>`;
+            detail = `Check-in ${when} (${fmtDate(b.checkin)}) · Check-out ${fmtDate(b.checkout)}`;
+        } else if (c.type === 'cancelled') {
+            badge = `<span style="background:#E05C5C;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CANCELLED</span>`;
+            detail = `Was checking in ${when} (${fmtDate(b.checkin)}) · Checking out ${fmtDate(b.checkout)}`;
+        } else {
+            badge = `<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CHANGED</span>`;
+            detail = `Was ${fmtDate(c.previous.checkin)} → ${fmtDate(c.previous.checkout)}<br>Now ${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}`;
+        }
+        return `<div style="background:#f8f9fa;border-radius:10px;padding:14px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+                ${badge}
+                <span style="font-weight:700;color:#1B4965;font-size:0.92rem">${b.room}</span>
+            </div>
+            <div style="font-size:0.85rem;color:#5D7285;line-height:1.5">${detail}</div>
+        </div>`;
+    }).join('');
 
+    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
+  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
+    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">⚠️ Airbnb Calendar Change — Imminent Check-in</h2>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="color:#5D7285;margin-top:0">A booking has changed for a guest arriving within the next 24 hours:</p>
+    ${rows}
+    <p style="margin-top:16px;text-align:center">
+        <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+           style="display:inline-block;background:#1B4965;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.9rem">
+           View Schedule →
+        </a>
+    </p>
+  </div>
+  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
+    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
+  </div>
+</div></body></html>`;
+
+    return html;
+}
+
+async function main() {
+    const sydneyNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+    const todayStr   = sydneyNow.toISOString().slice(0, 10);
+    const tomorrow   = new Date(sydneyNow); tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    // Fetch existing bookings from Supabase for change detection
+    const { data: existing } = await supabase
+        .from('airbnb_bookings')
+        .select('*')
+        .gte('checkout', todayStr);
+    const existingMap = new Map((existing || []).map(b => [b.id, b]));
+
+    // Fetch fresh iCal data
+    const allBookings = [];
     for (const room of ROOMS) {
         console.log(`Fetching ${room.name}...`);
         const res = await fetch(room.url);
@@ -63,17 +132,57 @@ async function main() {
         console.log(`  ${upcoming.length} upcoming events`);
         for (const e of upcoming) {
             allBookings.push({
-                id:       `${room.name.replace(' ','').toLowerCase()}-${e.uid}`,
-                room:     room.name,
-                checkin:  e.checkin,
-                checkout: e.checkout,
-                summary:  e.summary,
+                id:         `${room.name.replace(' ','').toLowerCase()}-${e.uid}`,
+                room:       room.name,
+                checkin:    e.checkin,
+                checkout:   e.checkout,
+                summary:    e.summary,
                 fetched_at: new Date().toISOString(),
             });
         }
     }
+    const newMap = new Map(allBookings.map(b => [b.id, b]));
 
-    // Remove stale past bookings
+    // Detect changes for bookings with check-in within 24h (today or tomorrow)
+    const changes = [];
+    for (const [id, b] of newMap) {
+        if (b.checkin !== todayStr && b.checkin !== tomorrowStr) continue;
+        const prev = existingMap.get(id);
+        if (!prev) {
+            changes.push({ type: 'new', booking: b });
+        } else if (prev.checkin !== b.checkin || prev.checkout !== b.checkout) {
+            changes.push({ type: 'modified', booking: b, previous: prev });
+        }
+    }
+    for (const [id, b] of existingMap) {
+        if (b.checkin !== todayStr && b.checkin !== tomorrowStr) continue;
+        if (!newMap.has(id)) {
+            changes.push({ type: 'cancelled', booking: b });
+        }
+    }
+
+    if (changes.length > 0) {
+        console.log(`${changes.length} change(s) detected for imminent check-ins — sending alert`);
+        if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+            const transport = nodemailer.createTransport({
+                host: 'smtp.gmail.com', port: 587, secure: false,
+                auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+            });
+            await transport.sendMail({
+                from:    `"Hours Tracker" <${GMAIL_USER}>`,
+                to:      EVERYONE.join(', '),
+                subject: `⚠️ Airbnb calendar change — guest arriving within 24h`,
+                html:    buildAlertEmail(changes, todayStr, tomorrowStr),
+            });
+            console.log('  Alert email sent');
+        } else {
+            console.warn('  GMAIL credentials not set — skipping email');
+        }
+    } else {
+        console.log('No changes to imminent bookings');
+    }
+
+    // Remove stale past bookings and upsert fresh data
     const { error: delErr } = await supabase
         .from('airbnb_bookings')
         .delete()
