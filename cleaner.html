@@ -469,7 +469,18 @@ async function syncFromSupabase() {
             .order('date', { ascending: false });
         if (error) throw error;
         if (data) {
-            saveData({ entries: data });
+            // Merge: keep any locally-stored entries not yet in Supabase
+            const local = getData().entries;
+            const remoteIds = new Set(data.map(e => e.id));
+            const localOnly = local.filter(e => !remoteIds.has(e.id));
+            // Push any local-only entries up to Supabase
+            if (localOnly.length > 0) {
+                sbClient.from('hours_entries').upsert(localOnly).then(({ error: ue }) => {
+                    if (ue) console.warn('Supabase upsert failed:', ue.message);
+                });
+            }
+            const merged = [...data, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+            saveData({ entries: merged });
             if (pinUnlocked) {
                 if (currentTab === 'home')  renderHome();
                 if (currentTab === 'week')  renderWeek();
