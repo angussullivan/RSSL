@@ -407,10 +407,10 @@ function getSettings() {
             recipients:       s.recipients       || ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'],
             emailJS:          s.emailJS          || { publicKey: '', serviceId: '', templateId: '' },
             lastSent:         s.lastSent         || null,
-            supabaseUrl:      s.supabaseUrl      || '',
-            supabaseAnonKey:  s.supabaseAnonKey  || '',
+            supabaseUrl:      s.supabaseUrl      || 'https://yslpaxzfpdzxzhuspmij.supabase.co',
+            supabaseAnonKey:  s.supabaseAnonKey  || 'sb_publishable_FoXNm6zbJglmNXMvIKQYQg_rHVWj6p3',
         };
-    } catch { return { pin:'1234', cleanerName:'Our Cleaner', recipients:['angussullivan@gmail.com','jenna4134@gmail.com','angelicasuesscun@icloud.com'], emailJS:{}, lastSent:null, supabaseUrl:'', supabaseAnonKey:'' }; }
+    } catch { return { pin:'1234', cleanerName:'Our Cleaner', recipients:['angussullivan@gmail.com','jenna4134@gmail.com','angelicasuesscun@icloud.com'], emailJS:{}, lastSent:null, supabaseUrl:'https://yslpaxzfpdzxzhuspmij.supabase.co', supabaseAnonKey:'sb_publishable_FoXNm6zbJglmNXMvIKQYQg_rHVWj6p3' }; }
 }
 function storeSettings(s) { localStorage.setItem('ch_settings', JSON.stringify(s)); }
 
