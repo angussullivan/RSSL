@@ -1,0 +1,51 @@
+name: Scheduled Email Reports
+
+on:
+  # Runs at four UTC times to cover both AEST (UTC+10) and AEDT (UTC+11)
+  # The script checks the actual Sydney time and skips if it's not the right window.
+  schedule:
+    - cron: '0 10 * * *'   # 9:00pm AEDT (summer Oct–Apr)
+    - cron: '30 10 * * *'  # 9:30pm AEDT (summer Oct–Apr)
+    - cron: '0 11 * * *'   # 9:00pm AEST (winter Apr–Oct)
+    - cron: '30 11 * * *'  # 9:30pm AEST (winter Apr–Oct)
+
+  # Manual trigger for testing — choose which report type to send
+  workflow_dispatch:
+    inputs:
+      type:
+        description: 'Report to send'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - reminder
+          - daily
+          - weekly
+          - monthly
+
+jobs:
+  send-emails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: Install dependencies
+        run: cd .github/scripts && npm install
+
+      - name: Send scheduled emails
+        run: cd .github/scripts && node send-emails.js
+        env:
+          SUPABASE_URL:        ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_USER:          ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD:  ${{ secrets.GMAIL_APP_PASSWORD }}
+          CRON_SCHEDULE:       ${{ github.event.schedule }}
+          MANUAL_TYPE:         ${{ github.event.inputs.type }}
