@@ -889,6 +889,58 @@ function renderHome() {
             ${tEntries.length > 0 ? `<button class="btn2" style="margin-top:8px" onclick="sendDailyReport('${today}')">Send Today's Report</button>` : ''}
             ${lastSentNote}
         </div>
+
+        <div class="card" id="home-airbnb">
+            <div class="card-lbl">Today's Airbnb Activity</div>
+            <div style="text-align:center;color:#ccc;font-size:0.85rem;padding:6px 0">Loading…</div>
+        </div>
+    `;
+    renderHomeAirbnb();
+}
+
+async function renderHomeAirbnb() {
+    const el = document.getElementById('home-airbnb');
+    if (!el || !sbClient) {
+        if (el) el.style.display = 'none';
+        return;
+    }
+    const today = todayStr();
+    const { data, error } = await sbClient
+        .from('airbnb_bookings')
+        .select('*')
+        .or(`checkin.eq.${today},checkout.eq.${today}`)
+        .order('room');
+
+    if (!el) return;
+    if (error || !data || data.length === 0) {
+        el.style.display = 'none';
+        return;
+    }
+
+    const checkouts = data.filter(b => b.checkout === today).sort((a,b) => a.room.localeCompare(b.room));
+    const checkins  = data.filter(b => b.checkin  === today).sort((a,b) => a.room.localeCompare(b.room));
+    const total     = checkouts.length + checkins.length;
+
+    let rows = '';
+    checkouts.forEach((b, i) => {
+        const border = (i < checkouts.length - 1 || checkins.length > 0) ? 'border-bottom:1px solid #f5f5f5' : '';
+        rows += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;${border}">
+            <span style="background:#E05C5C;color:#fff;border-radius:6px;padding:3px 9px;font-size:0.7rem;font-weight:700;flex-shrink:0">CHECK-OUT</span>
+            <span style="font-size:0.88rem;font-weight:600;color:#2C3E50">${b.room}</span>
+            <span style="font-size:0.72rem;color:#bbb;margin-left:auto">clean needed</span>
+        </div>`;
+    });
+    checkins.forEach((b, i) => {
+        const border = i < checkins.length - 1 ? 'border-bottom:1px solid #f5f5f5' : '';
+        rows += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;${border}">
+            <span style="background:#27AE60;color:#fff;border-radius:6px;padding:3px 9px;font-size:0.7rem;font-weight:700;flex-shrink:0">CHECK-IN</span>
+            <span style="font-size:0.88rem;font-weight:600;color:#2C3E50">${b.room}</span>
+        </div>`;
+    });
+
+    el.innerHTML = `
+        <div class="card-lbl">Today's Airbnb Activity</div>
+        ${rows}
     `;
 }
 
