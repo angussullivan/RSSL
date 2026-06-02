@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         :root{
@@ -338,6 +339,17 @@
             </div>
         </div>
         <div class="ssec">
+            <label class="slbl">Supabase — required for automated emails</label>
+            <input class="sinp" id="s-sburl" type="url" placeholder="https://xxxxxxxx.supabase.co">
+            <input class="sinp" id="s-sbkey" type="text" placeholder="Anon / Public Key">
+            <div class="snote">
+                Sign up free at <a href="https://supabase.com" target="_blank">supabase.com</a>, create a project,
+                run the <strong>supabase-setup.sql</strong> file in the SQL editor, then paste your
+                <strong>Project URL</strong> and <strong>anon key</strong> from
+                Project Settings → API.
+            </div>
+        </div>
+        <div class="ssec">
             <label class="slbl" style="color:var(--danger)">Danger Zone</label>
             <button class="btn2" style="border-color:var(--danger);color:var(--danger)" onclick="confirmClearData()">Clear All Hours Data</button>
         </div>
@@ -390,13 +402,15 @@ function getSettings() {
     try {
         const s = JSON.parse(localStorage.getItem('ch_settings') || '{}');
         return {
-            pin:          s.pin          || '1234',
-            cleanerName:  s.cleanerName  || 'Our Cleaner',
-            recipients:   s.recipients   || ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'],
-            emailJS:      s.emailJS      || { publicKey: '', serviceId: '', templateId: '' },
-            lastSent:     s.lastSent     || null,
+            pin:              s.pin              || '1234',
+            cleanerName:      s.cleanerName      || 'Our Cleaner',
+            recipients:       s.recipients       || ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'],
+            emailJS:          s.emailJS          || { publicKey: '', serviceId: '', templateId: '' },
+            lastSent:         s.lastSent         || null,
+            supabaseUrl:      s.supabaseUrl      || '',
+            supabaseAnonKey:  s.supabaseAnonKey  || '',
         };
-    } catch { return { pin:'1234', cleanerName:'Our Cleaner', recipients:['angussullivan@gmail.com','jenna4134@gmail.com','angelicasuesscun@icloud.com'], emailJS:{}, lastSent:null }; }
+    } catch { return { pin:'1234', cleanerName:'Our Cleaner', recipients:['angussullivan@gmail.com','jenna4134@gmail.com','angelicasuesscun@icloud.com'], emailJS:{}, lastSent:null, supabaseUrl:'', supabaseAnonKey:'' }; }
 }
 function storeSettings(s) { localStorage.setItem('ch_settings', JSON.stringify(s)); }
 
@@ -434,20 +448,62 @@ function fh(h) {
 }
 
 // ============================================================
+// SUPABASE SYNC
+// ============================================================
+let sbClient = null;
+
+function initSupabase() {
+    const s = getSettings();
+    if (s.supabaseUrl && s.supabaseAnonKey && window.supabase) {
+        sbClient = window.supabase.createClient(s.supabaseUrl, s.supabaseAnonKey);
+        syncFromSupabase();
+    }
+}
+
+async function syncFromSupabase() {
+    if (!sbClient) return;
+    try {
+        const { data, error } = await sbClient
+            .from('hours_entries')
+            .select('*')
+            .order('date', { ascending: false });
+        if (error) throw error;
+        if (data) {
+            saveData({ entries: data });
+            if (pinUnlocked) {
+                if (currentTab === 'home')  renderHome();
+                if (currentTab === 'week')  renderWeek();
+                if (currentTab === 'month') renderMonth();
+            }
+        }
+    } catch(e) {
+        console.warn('Supabase sync failed, using local data:', e.message);
+    }
+}
+
+// ============================================================
 // ENTRIES
 // ============================================================
 function addEntry(dateStr, location, hours, notes) {
-    const data = getData();
-    data.entries.unshift({
+    const entry = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
         date: dateStr, location, hours, notes: notes||''
-    });
+    };
+    const data = getData();
+    data.entries.unshift(entry);
     saveData(data);
+    // Fire-and-forget sync to Supabase (data is safe in localStorage either way)
+    if (sbClient) sbClient.from('hours_entries').insert(entry).then(({ error }) => {
+        if (error) console.warn('Supabase insert failed:', error.message);
+    });
 }
 function deleteEntry(id) {
     const data = getData();
     data.entries = data.entries.filter(e => e.id !== id);
     saveData(data);
+    if (sbClient) sbClient.from('hours_entries').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase delete failed:', error.message);
+    });
 }
 function entriesForDate(s)  { return getData().entries.filter(e => e.date === s); }
 function entriesForWeek(wDates) {
@@ -1094,6 +1150,8 @@ function openSettings() {
     document.getElementById('s-ejpk').value  = s.emailJS.publicKey  || '';
     document.getElementById('s-ejsid').value = s.emailJS.serviceId  || '';
     document.getElementById('s-ejtid').value = s.emailJS.templateId || '';
+    document.getElementById('s-sburl').value = s.supabaseUrl      || '';
+    document.getElementById('s-sbkey').value = s.supabaseAnonKey  || '';
     document.getElementById('sov').classList.add('on');
 }
 function closeSettings() { document.getElementById('sov').classList.remove('on'); }
@@ -1114,7 +1172,10 @@ function saveSettings() {
         serviceId:  document.getElementById('s-ejsid').value.trim(),
         templateId: document.getElementById('s-ejtid').value.trim(),
     };
+    s.supabaseUrl     = document.getElementById('s-sburl').value.trim();
+    s.supabaseAnonKey = document.getElementById('s-sbkey').value.trim();
     storeSettings(s);
+    initSupabase(); // reconnect with new credentials if changed
     closeSettings();
     toast('Settings saved!', 'g');
     updateHeader();
@@ -1214,6 +1275,7 @@ function updateHeader() {
 // ============================================================
 function init() {
     updateHeader();
+    initSupabase(); // will sync from Supabase if configured, then re-render
     renderHome();
 }
 </script>
