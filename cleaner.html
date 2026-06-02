@@ -403,6 +403,15 @@ function getData() {
     try { return JSON.parse(localStorage.getItem('ch_data') || '{"entries":[]}'); }
     catch { return { entries: [] }; }
 }
+function getDeletedIds() {
+    try { return new Set(JSON.parse(localStorage.getItem('ch_deleted') || '[]')); }
+    catch { return new Set(); }
+}
+function trackDeleted(id) {
+    const ids = getDeletedIds(); ids.add(id);
+    localStorage.setItem('ch_deleted', JSON.stringify([...ids]));
+
+}
 function saveData(d) { localStorage.setItem('ch_data', JSON.stringify(d)); }
 function getSettings() {
     try {
@@ -475,17 +484,25 @@ async function syncFromSupabase() {
             .order('date', { ascending: false });
         if (error) throw error;
         if (data) {
+            const deletedIds = getDeletedIds();
+            // Re-issue deletes for any tombstoned entries still in Supabase
+            const stillInRemote = data.filter(e => deletedIds.has(e.id));
+            stillInRemote.forEach(e => sbClient.from('hours_entries').delete().eq('id', e.id).then(({ error: de }) => {
+                if (de) console.warn('Supabase re-delete failed:', de.message);
+            }));
+            // Filter remote data to exclude tombstoned entries
+            const remoteClean = data.filter(e => !deletedIds.has(e.id));
             // Merge: keep any locally-stored entries not yet in Supabase
             const local = getData().entries;
-            const remoteIds = new Set(data.map(e => e.id));
-            const localOnly = local.filter(e => !remoteIds.has(e.id));
+            const remoteIds = new Set(remoteClean.map(e => e.id));
+            const localOnly = local.filter(e => !remoteIds.has(e.id) && !deletedIds.has(e.id));
             // Push any local-only entries up to Supabase
             if (localOnly.length > 0) {
                 sbClient.from('hours_entries').upsert(localOnly).then(({ error: ue }) => {
                     if (ue) console.warn('Supabase upsert failed:', ue.message);
                 });
             }
-            const merged = [...data, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+            const merged = [...remoteClean, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
             saveData({ entries: merged });
             if (pinUnlocked) {
                 if (currentTab === 'home')  renderHome();
@@ -518,6 +535,7 @@ function deleteEntry(id) {
     const data = getData();
     data.entries = data.entries.filter(e => e.id !== id);
     saveData(data);
+    trackDeleted(id);
     if (sbClient) sbClient.from('hours_entries').delete().eq('id', id).then(({ error }) => {
         if (error) console.warn('Supabase delete failed:', error.message);
     });
