@@ -909,7 +909,7 @@ function renderHome() {
         </div>
 
         <div class="card" id="home-airbnb">
-            <div class="card-lbl">Today's Airbnb Activity</div>
+            <div class="card-lbl">Next Airbnb Activity</div>
             <div style="text-align:center;color:#ccc;font-size:0.85rem;padding:6px 0">Loading…</div>
         </div>
     `;
@@ -918,26 +918,38 @@ function renderHome() {
 
 async function renderHomeAirbnb() {
     const el = document.getElementById('home-airbnb');
-    if (!el || !sbClient) {
-        if (el) el.style.display = 'none';
-        return;
-    }
+    if (!el || !sbClient) { if (el) el.style.display = 'none'; return; }
+
     const today = todayStr();
+
+    // Fetch all upcoming bookings and find the next date with activity
     const { data, error } = await sbClient
         .from('airbnb_bookings')
         .select('*')
-        .or(`checkin.eq.${today},checkout.eq.${today}`)
-        .order('room');
+        .gte('checkout', today)
+        .order('checkin', { ascending: true });
 
     if (!el) return;
-    if (error || !data || data.length === 0) {
-        el.style.display = 'none';
-        return;
-    }
+    if (error || !data || data.length === 0) { el.style.display = 'none'; return; }
 
-    const checkouts = data.filter(b => b.checkout === today).sort((a,b) => a.room.localeCompare(b.room));
-    const checkins  = data.filter(b => b.checkin  === today).sort((a,b) => a.room.localeCompare(b.room));
-    const total     = checkouts.length + checkins.length;
+    // Collect all activity dates (checkins and checkouts) from today onwards
+    const activityDates = new Set();
+    data.forEach(b => {
+        if (b.checkout >= today) activityDates.add(b.checkout);
+        if (b.checkin  >= today) activityDates.add(b.checkin);
+    });
+    const nextDate = [...activityDates].sort()[0];
+    if (!nextDate) { el.style.display = 'none'; return; }
+
+    const isToday    = nextDate === today;
+    const [y, m, d]  = nextDate.split('-').map(Number);
+    const dt         = new Date(y, m - 1, d);
+    const dayNames   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const dateLabel  = isToday ? 'Today' : `${dayNames[dt.getDay()]} ${d} ${monthNames[m - 1]}`;
+
+    const checkouts = data.filter(b => b.checkout === nextDate).sort((a,b) => a.room.localeCompare(b.room));
+    const checkins  = data.filter(b => b.checkin  === nextDate).sort((a,b) => a.room.localeCompare(b.room));
 
     let rows = '';
     checkouts.forEach((b, i) => {
@@ -957,7 +969,10 @@ async function renderHomeAirbnb() {
     });
 
     el.innerHTML = `
-        <div class="card-lbl">Today's Airbnb Activity</div>
+        <div class="row-bet" style="margin-bottom:10px">
+            <span class="card-lbl" style="margin:0">Next Airbnb Activity</span>
+            <span style="font-size:0.78rem;font-weight:700;color:${isToday ? 'var(--ocean)' : '#888'}">${dateLabel}</span>
+        </div>
         ${rows}
     `;
 }
