@@ -44,7 +44,10 @@ const isLastDayOfMonth = sydneyNow.getDate() === daysInThisMonth;
 // The workflow fires at 10:00, 10:30, 11:00, 11:30 UTC to cover both AEST and AEDT.
 // We use the actual Sydney time to decide what to do.
 const is9pm   = MANUAL_TYPE === 'reminder' || (sydneyHour === 21 && sydneyMin < 30);
-const is930pm = ['daily','weekly','monthly'].includes(MANUAL_TYPE) || (sydneyHour === 21 && sydneyMin >= 30);
+// Accept 9:30pm–10:59pm so a late-firing or backup cron still sends the summary.
+const is930pm = ['daily','weekly','monthly'].includes(MANUAL_TYPE) ||
+                (sydneyHour === 21 && sydneyMin >= 30) ||
+                sydneyHour === 22;
 
 console.log(`Sydney time: ${sydneyNow.toLocaleTimeString('en-AU')}, date: ${todayStr}`);
 console.log(`isSunday: ${isSunday}, isLastDayOfMonth: ${isLastDayOfMonth}`);

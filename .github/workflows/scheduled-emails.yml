@@ -1,13 +1,16 @@
 name: Scheduled Email Reports
 
 on:
-  # Runs at four UTC times to cover both AEST (UTC+10) and AEDT (UTC+11)
+  # Runs at six UTC times to cover both AEST (UTC+10) and AEDT (UTC+11).
+  # Extra 9:35pm entries act as a backup in case GitHub's scheduler skips the 9:30pm run.
   # The script checks the actual Sydney time and skips if it's not the right window.
   schedule:
     - cron: '0 10 * * *'   # 9:00pm AEDT (summer Oct–Apr)
     - cron: '30 10 * * *'  # 9:30pm AEDT (summer Oct–Apr)
+    - cron: '35 10 * * *'  # 9:35pm AEDT — backup for 9:30pm
     - cron: '0 11 * * *'   # 9:00pm AEST (winter Apr–Oct)
     - cron: '30 11 * * *'  # 9:30pm AEST (winter Apr–Oct)
+    - cron: '35 11 * * *'  # 9:35pm AEST — backup for 9:30pm
 
   # Manual trigger for testing — choose which report type to send
   workflow_dispatch:
