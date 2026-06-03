@@ -2,10 +2,7 @@ name: Sync Airbnb Calendar
 
 on:
   schedule:
-    - cron: '0 19 * * *'   #  5am AEST (UTC+10) /  6am AEDT (UTC+11)
-    - cron: '0  2 * * *'   # 12pm AEST           /  1pm AEDT
-    - cron: '0  6 * * *'   #  4pm AEST           /  5pm AEDT
-    - cron: '0 11 * * *'   #  9pm AEST           / 10pm AEDT
+    - cron: '0 */3 * * *'  # every 3 hours (UTC)
   workflow_dispatch:
 
 jobs:
