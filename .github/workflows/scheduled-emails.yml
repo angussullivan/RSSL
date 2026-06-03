@@ -1,7 +1,7 @@
 name: Scheduled Email Reports
 
 on:
-  # Runs at four UTC times to cover both AEST (UTC+10) and AEDT (UTC+11)
+  # Runs at four UTC times to cover both AEST (UTC+10) and AEDT (UTC+11).
   # The script checks the actual Sydney time and skips if it's not the right window.
   schedule:
     - cron: '0 10 * * *'   # 9:00pm AEDT (summer Oct–Apr)
