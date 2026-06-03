@@ -223,6 +223,21 @@
         .empty{text-align:center;padding:32px 16px;color:var(--text-light)}
         .empty svg{width:44px;height:44px;opacity:.25;margin-bottom:10px}
         .empty p{font-size:.87rem}
+
+        /* ── ISSUE ITEMS ── */
+        .issue-item{background:#fff;border-radius:12px;padding:13px 14px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--sh);margin-bottom:8px}
+        .issue-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px}
+        .issue-dot.urgent{background:var(--danger)}.issue-dot.normal{background:var(--warn)}
+        .issue-info{flex:1;min-width:0}
+        .issue-loc{font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.8px}
+        .issue-desc{font-size:.88rem;color:var(--text);margin-top:3px;line-height:1.4}
+        .issue-meta{font-size:.68rem;color:var(--text-light);margin-top:4px}
+        .issue-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:.65rem;font-weight:700;margin-bottom:3px}
+        .issue-badge.urgent{background:#fde8e8;color:var(--danger)}.issue-badge.normal{background:#fef3e2;color:var(--warn)}
+        .rbtn{width:30px;height:30px;border-radius:9px;background:#e6f9ef;border:none;color:var(--success);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+        .pri-btn{flex:1;padding:11px;border-radius:12px;border:2.5px solid var(--clean);background:#fff;font-family:inherit;font-size:.88rem;font-weight:700;color:var(--text-light);cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+        .pri-btn.sel{border-color:var(--ocean);color:var(--ocean);background:linear-gradient(135deg,#f0f7fc,#e8f4fa)}
+        .pri-btn.urg-sel{border-color:var(--danger);color:var(--danger);background:#fde8e8}
     </style>
 </head>
 <body>
@@ -378,6 +393,30 @@
     </div>
 </div>
 
+<!-- Issue report overlay -->
+<div class="sov" id="iov" onclick="closeIssueFormIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">Report an Issue</div>
+        <div class="ssec">
+            <label class="slbl">Location</label>
+            <div id="i-locs" style="display:flex;flex-direction:column;gap:9px"></div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Priority</label>
+            <div style="display:flex;gap:9px">
+                <button id="i-p-normal" class="pri-btn sel" onclick="setIssuePriority('normal')">Normal</button>
+                <button id="i-p-urgent" class="pri-btn" onclick="setIssuePriority('urgent')">Urgent</button>
+            </div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Description</label>
+            <textarea class="notes-inp" id="i-desc" rows="4" placeholder="What needs attention? Be specific about where in the property…"></textarea>
+        </div>
+        <button class="btn1" onclick="submitIssueForm()">Submit Report</button>
+    </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -508,6 +547,41 @@ async function syncFromSupabase() {
             }
             const merged = [...remoteClean, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
             saveData({ entries: merged });
+            // Sync maintenance issues from Supabase
+            const { data: remoteIssues } = await sbClient
+                .from('maintenance_issues')
+                .select('*')
+                .eq('resolved', false);
+            if (remoteIssues) {
+                const localIssues = getIssues();
+                const remoteIds = new Set(remoteIssues.map(i => i.id));
+                const localOnly = localIssues.filter(i => !remoteIds.has(i.id) && !i.resolved);
+                if (localOnly.length > 0) {
+                    sbClient.from('maintenance_issues').upsert(localOnly).then(({ error: ie }) => {
+                        if (ie) console.warn('Issue upsert failed:', ie.message);
+                    });
+                }
+                const mergedIssues = [...remoteIssues, ...localOnly].sort((a, b) =>
+                    new Date(b.created_at) - new Date(a.created_at));
+                saveIssues(mergedIssues);
+            }
+            // Sync app settings from Supabase
+            const { data: remoteSettings } = await sbClient
+                .from('app_settings')
+                .select('*')
+                .eq('id', 1)
+                .single();
+            if (remoteSettings) {
+                const local = JSON.parse(localStorage.getItem('ch_settings') || '{}');
+                const merged = {
+                    ...local,
+                    cleanerName: remoteSettings.cleaner_name || local.cleanerName,
+                    pin:         remoteSettings.pin          || local.pin,
+                    recipients:  remoteSettings.recipients   || local.recipients,
+                };
+                localStorage.setItem('ch_settings', JSON.stringify(merged));
+                updateHeader();
+            }
             if (pinUnlocked) {
                 if (currentTab === 'home')  renderHome();
                 if (currentTab === 'week')  renderWeek();
@@ -865,6 +939,11 @@ function renderHome() {
     const lastSentNote = settings.lastSent
         ? `<div style="font-size:.72rem;color:var(--text-light);text-align:center;margin-top:8px">Last report sent: ${fmt(strToDate(settings.lastSent))}</div>` : '';
 
+    const openIssues = getIssues().filter(i => !i.resolved);
+    const issuesHTML = openIssues.length > 0
+        ? openIssues.slice(0, 5).map(issueItemHTML).join('')
+        : `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
+
     document.getElementById('tab-home').innerHTML = `
         ${sunBanner}
         <div class="card">
@@ -913,6 +992,15 @@ function renderHome() {
         <div class="card" id="home-airbnb">
             <div class="card-lbl">Next Airbnb Activity</div>
             <div style="text-align:center;color:#ccc;font-size:0.85rem;padding:6px 0">Loading…</div>
+        </div>
+
+        <div class="card">
+            <div class="row-bet" style="margin-bottom:12px">
+                <span class="card-lbl" style="margin:0">Maintenance Issues</span>
+                ${openIssues.length > 0 ? `<span class="badge r">${openIssues.length} open</span>` : ''}
+            </div>
+            ${issuesHTML}
+            <button class="btn2" style="margin-top:10px" onclick="openIssueForm()">Report an Issue</button>
         </div>
     `;
     renderHomeAirbnb();
@@ -1384,6 +1472,7 @@ function saveSettings() {
     s.supabaseUrl     = document.getElementById('s-sburl').value.trim();
     s.supabaseAnonKey = document.getElementById('s-sbkey').value.trim();
     storeSettings(s);
+    pushSettingsToSupabase(s);
     initSupabase(); // reconnect with new credentials if changed
     closeSettings();
     toast('Settings saved!', 'g');
@@ -1480,6 +1569,155 @@ function updateHeader() {
     const name = getSettings().cleanerName;
     const nameEl = document.getElementById('hdr-name');
     if (nameEl) nameEl.textContent = name && name !== 'Our Cleaner' ? `Cleaner: ${name}` : '';
+}
+
+// ============================================================
+// ISSUES
+// ============================================================
+function getIssues() {
+    try { return JSON.parse(localStorage.getItem('ch_issues') || '[]'); }
+    catch { return []; }
+}
+function saveIssues(issues) { localStorage.setItem('ch_issues', JSON.stringify(issues)); }
+
+let issueFormLoc      = null;
+let issueFormPriority = 'normal';
+
+function openIssueForm() {
+    issueFormLoc      = null;
+    issueFormPriority = 'normal';
+    document.getElementById('i-locs').innerHTML = LOCS.map(l => `
+        <button class="lbtn" id="ilbtn-${l.id}" onclick="setIssueLoc('${l.id}')">
+            <div class="lic ${l.cls}">${locIcon(l.id)}</div>
+            <div><div class="lname">${l.name}</div><div class="lsub">${l.sub}</div></div>
+        </button>`).join('');
+    document.getElementById('i-desc').value = '';
+    setIssuePriority('normal');
+    document.getElementById('iov').classList.add('on');
+}
+function closeIssueForm() { document.getElementById('iov').classList.remove('on'); }
+function closeIssueFormIfBg(e) { if (e.target === document.getElementById('iov')) closeIssueForm(); }
+
+function setIssueLoc(loc) {
+    issueFormLoc = loc;
+    LOCS.forEach(l => {
+        const btn = document.getElementById(`ilbtn-${l.id}`);
+        if (btn) btn.classList.toggle('sel', l.id === loc);
+    });
+}
+
+function setIssuePriority(p) {
+    issueFormPriority = p;
+    const nb = document.getElementById('i-p-normal');
+    const ub = document.getElementById('i-p-urgent');
+    if (nb) { nb.classList.toggle('sel', p === 'normal'); nb.classList.remove('urg-sel'); }
+    if (ub) {
+        ub.classList.remove('sel', 'urg-sel');
+        if (p === 'urgent') ub.classList.add('urg-sel');
+    }
+}
+
+async function submitIssueForm() {
+    if (!issueFormLoc) { toast('Select a location', 'e'); return; }
+    const desc = document.getElementById('i-desc').value.trim();
+    if (!desc) { toast('Please describe the issue', 'e'); return; }
+
+    const issue = {
+        id:         Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        location:   issueFormLoc,
+        description: desc,
+        priority:   issueFormPriority,
+        created_at: new Date().toISOString(),
+        resolved:   false,
+        notified:   false,
+    };
+
+    const issues = getIssues();
+    issues.unshift(issue);
+    saveIssues(issues);
+
+    if (sbClient) {
+        sbClient.from('maintenance_issues').insert(issue).then(({ error }) => {
+            if (error) console.warn('Issue Supabase insert failed:', error.message);
+        });
+    }
+
+    const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
+    const locName = locMap[issue.location] || issue.location;
+    const urgent  = issue.priority === 'urgent';
+    const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue — ${locName}`;
+    const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
+
+    const sent = await dispatchEmailSilent(subject, body);
+    closeIssueForm();
+    renderHome();
+    toast(sent ? 'Issue reported — owners notified' : 'Issue saved — owners notified tonight', 'g');
+}
+
+async function dispatchEmailSilent(subject, body) {
+    const s = getSettings();
+    const recips = s.recipients.filter(r => r && r.trim());
+    if (!recips.length) return false;
+    const { publicKey, serviceId, templateId } = s.emailJS;
+    if (!publicKey || !serviceId || !templateId) return false;
+    try {
+        emailjs.init({ publicKey });
+        for (const to of recips)
+            await emailjs.send(serviceId, templateId, { to_email: to, subject, message: body });
+        return true;
+    } catch(err) {
+        console.error('EmailJS silent send failed:', err);
+        return false;
+    }
+}
+
+function resolveIssue(id) {
+    confirm('Resolve issue?', 'Mark this issue as fixed and remove it from the open list.', 'Resolve', () => {
+        const issues = getIssues();
+        const idx = issues.findIndex(i => i.id === id);
+        if (idx !== -1) issues[idx].resolved = true;
+        saveIssues(issues);
+        if (sbClient) {
+            sbClient.from('maintenance_issues').update({ resolved: true }).eq('id', id)
+                .then(({ error }) => { if (error) console.warn('Issue resolve failed:', error.message); });
+        }
+        renderHome();
+        toast('Issue marked resolved', 'g');
+    }, false);
+}
+
+function issueItemHTML(issue) {
+    const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
+    const locName = locMap[issue.location] || issue.location;
+    const urgent  = issue.priority === 'urgent';
+    const date    = new Date(issue.created_at).toLocaleString('en-AU', {
+        timeZone: 'Australia/Sydney', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit'
+    });
+    return `<div class="issue-item">
+        <div class="issue-dot ${urgent ? 'urgent' : 'normal'}"></div>
+        <div class="issue-info">
+            <span class="issue-badge ${urgent ? 'urgent' : 'normal'}">${urgent ? 'Urgent' : 'Normal'}</span>
+            <div class="issue-loc">${locName}</div>
+            <div class="issue-desc">${escHtml(issue.description)}</div>
+            <div class="issue-meta">${date}</div>
+        </div>
+        <button class="rbtn" onclick="resolveIssue('${issue.id}')" title="Mark resolved">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+        </button>
+    </div>`;
+}
+
+function pushSettingsToSupabase(s) {
+    if (!sbClient) return;
+    sbClient.from('app_settings').upsert({
+        id:           1,
+        cleaner_name: s.cleanerName,
+        pin:          s.pin,
+        recipients:   s.recipients,
+        updated_at:   new Date().toISOString(),
+    }).then(({ error }) => {
+        if (error) console.warn('Settings push failed:', error.message);
+    });
 }
 
 // ============================================================

@@ -28,6 +28,7 @@ const LOCS = {
     tamarama: 'Tamarama Home',
 };
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── SYDNEY TIME ─────────────────────────────────────────────
 // Get the current date/time in Sydney (handles AEST/AEDT automatically)
@@ -279,8 +280,61 @@ async function send({ to, cc, subject, html }) {
     console.log(`  Sent "${subject}" → ${info.messageId}`);
 }
 
+// ── MAINTENANCE ALERT EMAIL ──────────────────────────────────
+function buildMaintenanceAlert(issues) {
+    const LOCS_MAP = { airbnb: 'Reservoir St Airbnb Rooms', laundry: 'Reservoir St Laundry', tamarama: 'Tamarama Home' };
+    const rows = issues.map(issue => {
+        const locName  = LOCS_MAP[issue.location] || issue.location;
+        const urgent   = issue.priority === 'urgent';
+        const reported = new Date(issue.created_at).toLocaleString('en-AU', {
+            timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short'
+        });
+        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+            <div style="margin-bottom:5px">
+                ${urgent
+                    ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>`
+                    : `<span style="background:#f0f0f0;color:#666;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">Normal</span>`}
+                <span style="font-size:0.8rem;color:#888;margin-left:6px">${escHtml(locName)}</span>
+            </div>
+            <div style="font-size:0.92rem;color:#2C3E50;line-height:1.45">${escHtml(issue.description)}</div>
+            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">${reported}</div>
+        </td></tr>`;
+    }).join('');
+
+    const title = `Maintenance Issue${issues.length > 1 ? 's' : ''} Reported`;
+    return wrap(title, `
+        <p style="color:#2C3E50;margin-bottom:16px">The following maintenance issue${issues.length > 1 ? 's have' : ' has'} been flagged:</p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <p style="text-align:center;margin-top:20px">
+            <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+               style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">
+               Open App →
+            </a>
+        </p>
+    `);
+}
+
 // ── MAIN ─────────────────────────────────────────────────────
 async function main() {
+    // ── Always: check for unnotified maintenance issues ──────
+    const { data: newIssues } = await supabase
+        .from('maintenance_issues')
+        .select('*')
+        .eq('notified', false)
+        .eq('resolved', false);
+
+    if (newIssues && newIssues.length > 0) {
+        console.log(`Sending maintenance alert for ${newIssues.length} unnotified issue(s)`);
+        await send({
+            to: EVERYONE,
+            subject: `Maintenance Issue${newIssues.length > 1 ? 's' : ''} Reported — ${newIssues.length} item${newIssues.length > 1 ? 's' : ''}`,
+            html: buildMaintenanceAlert(newIssues),
+        });
+        await supabase.from('maintenance_issues')
+            .update({ notified: true })
+            .in('id', newIssues.map(i => i.id));
+    }
+
     // ── 9pm: reminder if no entries today ───────────────────
     if (is9pm) {
         const { data: todayEntries, error } = await supabase

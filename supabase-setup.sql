@@ -40,3 +40,37 @@ CREATE POLICY "service_write" ON public.airbnb_bookings
     FOR ALL TO service_role
     USING (true)
     WITH CHECK (true);
+
+-- Maintenance issues table (written by app, read by GitHub Actions for alert emails)
+CREATE TABLE IF NOT EXISTS public.maintenance_issues (
+    id          text PRIMARY KEY,
+    location    text NOT NULL,
+    description text NOT NULL,
+    priority    text NOT NULL DEFAULT 'normal',
+    created_at  timestamptz DEFAULT now(),
+    resolved    boolean DEFAULT false,
+    notified    boolean DEFAULT false
+);
+
+ALTER TABLE public.maintenance_issues ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_all_issues" ON public.maintenance_issues
+    FOR ALL TO anon
+    USING (true)
+    WITH CHECK (true);
+
+-- App settings table (shared across devices via Supabase)
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    id           integer PRIMARY KEY DEFAULT 1,
+    cleaner_name text,
+    pin          text,
+    recipients   jsonb,
+    updated_at   timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_all_settings" ON public.app_settings
+    FOR ALL TO anon
+    USING (true)
+    WITH CHECK (true);
