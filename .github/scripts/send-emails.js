@@ -34,7 +34,7 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 const sydneyNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
 const sydneyHour = sydneyNow.getHours();
 const sydneyMin  = sydneyNow.getMinutes();
-const todayStr   = sydneyNow.toISOString().slice(0, 10);
+const todayStr   = `${sydneyNow.getFullYear()}-${String(sydneyNow.getMonth()+1).padStart(2,'0')}-${String(sydneyNow.getDate()).padStart(2,'0')}`;
 const dayOfWeek  = sydneyNow.getDay(); // 0=Sun
 const isSunday   = dayOfWeek === 0;
 const daysInThisMonth = new Date(sydneyNow.getFullYear(), sydneyNow.getMonth() + 1, 0).getDate();

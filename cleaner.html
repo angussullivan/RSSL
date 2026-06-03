@@ -267,6 +267,7 @@
         <div class="hdr-left">
             <h2>67 Res ABNB Manager</h2>
             <p id="hdr-date"></p>
+            <p id="hdr-name" style="margin:0;font-size:0.72rem;color:rgba(255,255,255,0.55);line-height:1.2"></p>
         </div>
         <button class="hdr-btn" onclick="openSettings()" aria-label="Settings">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -331,6 +332,8 @@
             <input class="sinp" id="s-r1" type="email" placeholder="angussullivan@gmail.com">
             <input class="sinp" id="s-r2" type="email" placeholder="jenna4134@gmail.com">
             <input class="sinp" id="s-r3" type="email" placeholder="angelicasuesscun@icloud.com">
+            <input class="sinp" id="s-r4" type="email" placeholder="Optional recipient 4">
+            <input class="sinp" id="s-r5" type="email" placeholder="Optional recipient 5">
         </div>
         <div class="ssec">
             <label class="slbl">EmailJS (optional — for auto-send)</label>
@@ -433,6 +436,7 @@ function storeSettings(s) { localStorage.setItem('ch_settings', JSON.stringify(s
 // DATE UTILS
 // ============================================================
 function todayStr() { return dateToStr(new Date()); }
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function dateToStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -647,10 +651,8 @@ function buildReport(wDates) {
         const de = entries.filter(e => e.date === ds);
         const dt = de.reduce((a,e)=>a+e.hours, 0);
         weekTotal += dt;
-        lines.push(`${DAY_NAMES[i===6?0:i+1] || DAY_NAMES[i]}, ${fmtShort(d)}:`);
-        // Day index: wDates[0]=Mon ... wDates[6]=Sun
         const dayName = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][i];
-        lines[lines.length-1] = `${dayName}, ${fmtShort(d)}:`;
+        lines.push(`${dayName}, ${fmtShort(d)}:`);
         if (de.length > 0) {
             de.forEach(e => lines.push(`  ${locMap[e.location]}: ${fh(e.hours)}h${e.notes ? ' ('+e.notes+')' : ''}`));
             lines.push(`  Total: ${fh(dt)}h`);
@@ -1350,6 +1352,8 @@ function openSettings() {
     document.getElementById('s-r1').value    = s.recipients[0] || '';
     document.getElementById('s-r2').value    = s.recipients[1] || '';
     document.getElementById('s-r3').value    = s.recipients[2] || '';
+    document.getElementById('s-r4').value    = s.recipients[3] || '';
+    document.getElementById('s-r5').value    = s.recipients[4] || '';
     document.getElementById('s-ejpk').value  = s.emailJS.publicKey  || '';
     document.getElementById('s-ejsid').value = s.emailJS.serviceId  || '';
     document.getElementById('s-ejtid').value = s.emailJS.templateId || '';
@@ -1369,6 +1373,8 @@ function saveSettings() {
         document.getElementById('s-r1').value.trim(),
         document.getElementById('s-r2').value.trim(),
         document.getElementById('s-r3').value.trim(),
+        document.getElementById('s-r4').value.trim(),
+        document.getElementById('s-r5').value.trim(),
     ];
     s.emailJS = {
         publicKey:  document.getElementById('s-ejpk').value.trim(),
@@ -1459,10 +1465,10 @@ function entryItemHTML(e, showDelete) {
         <div class="edot ${loc?.dot||''}"></div>
         <div class="einfo">
             <div class="eloc">${loc?.sub} ${loc?.name||e.location}</div>
-            <div class="edate">${fmt(strToDate(e.date))}${e.notes?' — '+e.notes:''}</div>
+            <div class="edate">${fmt(strToDate(e.date))}${e.notes?' — '+escHtml(e.notes):''}</div>
         </div>
         <div class="ehrs">${fh(e.hours)}h</div>
-        ${showDelete||true?`<button class="xbtn" onclick="confirmDelete('${e.id}')">
+        ${showDelete?`<button class="xbtn" onclick="confirmDelete('${e.id}')">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>`:''}
     </div>`;
@@ -1471,6 +1477,9 @@ function entryItemHTML(e, showDelete) {
 function updateHeader() {
     const now = new Date();
     document.getElementById('hdr-date').textContent = `${DAY_NAMES[now.getDay()]}, ${now.getDate()} ${MONTH_NAMES[now.getMonth()]}`;
+    const name = getSettings().cleanerName;
+    const nameEl = document.getElementById('hdr-name');
+    if (nameEl) nameEl.textContent = name && name !== 'Our Cleaner' ? `Cleaner: ${name}` : '';
 }
 
 // ============================================================
