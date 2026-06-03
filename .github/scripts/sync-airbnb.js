@@ -109,9 +109,9 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
 
 async function main() {
     const sydneyNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
-    const todayStr   = sydneyNow.toISOString().slice(0, 10);
+    const todayStr   = `${sydneyNow.getFullYear()}-${String(sydneyNow.getMonth()+1).padStart(2,'0')}-${String(sydneyNow.getDate()).padStart(2,'0')}`;
     const tomorrow   = new Date(sydneyNow); tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
 
     // Fetch existing bookings from Supabase for change detection
     const { data: existing } = await supabase
