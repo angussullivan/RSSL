@@ -62,8 +62,8 @@
         /* ── BOTTOM NAV ── */
         .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;border-top:1px solid rgba(0,0,0,.07);display:flex;padding-bottom:var(--safe-bottom);z-index:100;box-shadow:0 -3px 16px rgba(0,0,0,.05)}
         .nt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 4px;cursor:pointer;-webkit-tap-highlight-color:transparent;color:var(--text-light);gap:4px;border:none;background:none}
-        .nt svg{width:22px;height:22px}
-        .nt span{font-size:.6rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
+        .nt svg{width:20px;height:20px}
+        .nt span{font-size:.55rem;font-weight:700;letter-spacing:.6px;text-transform:uppercase}
         .nt.on{color:var(--ocean)}
 
         /* ── CARDS ── */
@@ -224,20 +224,49 @@
         .empty svg{width:44px;height:44px;opacity:.25;margin-bottom:10px}
         .empty p{font-size:.87rem}
 
-        /* ── ISSUE ITEMS ── */
+        /* ── MAINTENANCE ISSUE ITEMS ── */
         .issue-item{background:#fff;border-radius:12px;padding:13px 14px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--sh);margin-bottom:8px}
-        .issue-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px}
+        .issue-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px;background:var(--warn)}
         .issue-dot.urgent{background:var(--danger)}.issue-dot.normal{background:var(--warn)}
         .issue-info{flex:1;min-width:0}
+        .issue-title{font-size:.88rem;font-weight:600;color:var(--text)}
         .issue-loc{font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.8px}
         .issue-desc{font-size:.88rem;color:var(--text);margin-top:3px;line-height:1.4}
-        .issue-meta{font-size:.68rem;color:var(--text-light);margin-top:4px}
-        .issue-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:.65rem;font-weight:700;margin-bottom:3px}
+        .issue-meta{font-size:.72rem;color:var(--text-light);margin-top:2px}
+        .issue-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:.65rem;font-weight:700;margin-right:4px}
+        .issue-badge.low{background:#f0f0f0;color:#666}
+        .issue-badge.medium{background:#fef3e2;color:var(--warn)}
+        .issue-badge.high{background:#fde8e8;color:var(--danger)}
         .issue-badge.urgent{background:#fde8e8;color:var(--danger)}.issue-badge.normal{background:#fef3e2;color:var(--warn)}
-        .rbtn{width:30px;height:30px;border-radius:9px;background:#e6f9ef;border:none;color:var(--success);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+        .rbtn{width:32px;height:32px;border-radius:9px;background:#e6f9ef;border:none;color:var(--success);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
         .pri-btn{flex:1;padding:11px;border-radius:12px;border:2.5px solid var(--clean);background:#fff;font-family:inherit;font-size:.88rem;font-weight:700;color:var(--text-light);cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
         .pri-btn.sel{border-color:var(--ocean);color:var(--ocean);background:linear-gradient(135deg,#f0f7fc,#e8f4fa)}
         .pri-btn.urg-sel{border-color:var(--danger);color:var(--danger);background:#fde8e8}
+
+        /* ── TASK ITEMS ── */
+        .task-item{background:#fff;border-radius:12px;padding:13px 14px;display:flex;align-items:flex-start;gap:10px;box-shadow:var(--sh);margin-bottom:8px}
+        .task-item.done{opacity:.5}
+        .task-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px}
+        .task-dot.urgent{background:var(--danger)}.task-dot.normal{background:var(--ocean)}.task-dot.low{background:var(--text-light)}
+        .task-info{flex:1;min-width:0}
+        .task-title{font-size:.88rem;font-weight:600;color:var(--text);line-height:1.35}
+        .task-title.done{text-decoration:line-through}
+        .task-desc{font-size:.78rem;color:var(--text-light);margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .task-meta{font-size:.68rem;color:var(--text-light);margin-top:4px}
+        .task-due{font-size:.7rem;font-weight:700;margin-bottom:3px}
+        .task-due.overdue{color:var(--danger)}
+        .task-due.ok{color:var(--text-light)}
+        .task-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:.65rem;font-weight:700;margin-right:4px}
+        .task-badge.low{background:#f0f0f0;color:#666}
+        .task-badge.normal{background:#e8f4fa;color:var(--ocean)}
+        .task-badge.urgent{background:#fde8e8;color:var(--danger)}
+        .done-toggle{font-size:.77rem;font-weight:700;color:var(--text-light);cursor:pointer;padding:8px 0;display:block;text-align:center}
+
+        /* ── PRIORITY / ADDED-BY BUTTON GROUPS ── */
+        .pbtn-row{display:flex;gap:8px;margin-bottom:8px}
+        .pbtn{flex:1;padding:10px 8px;border-radius:12px;border:2px solid var(--clean);background:#fff;font-family:inherit;font-size:.82rem;font-weight:600;color:var(--text-light);cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent}
+        .pbtn.sel{border-color:var(--ocean);color:var(--ocean);background:#f0f7fc}
+        .pbtn.sel.urgent{border-color:var(--danger);color:var(--danger);background:#fde8e8}
     </style>
 </head>
 <body>
@@ -297,6 +326,8 @@
         <div id="tab-home" class="tab on"></div>
         <!-- AIRBNB TAB -->
         <div id="tab-airbnb" class="tab"></div>
+        <!-- TASKS TAB -->
+        <div id="tab-tasks" class="tab"></div>
         <!-- LOG TAB -->
         <div id="tab-log" class="tab"></div>
         <!-- WEEK TAB -->
@@ -313,6 +344,10 @@
         <button class="nt" id="nav-airbnb" onclick="showTab('airbnb')" aria-label="ABNB Week">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12V9.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM12 12.75h.008v.008H12v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM12 15.75h.008v.008H12v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
             <span>ABNB</span>
+        </button>
+        <button class="nt" id="nav-tasks" onclick="showTab('tasks')" aria-label="Tasks">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <span>Tasks</span>
         </button>
         <button class="nt" id="nav-log" onclick="showTab('log')" aria-label="Log">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
@@ -378,6 +413,83 @@
             <button class="btn2" style="border-color:var(--danger);color:var(--danger)" onclick="confirmClearData()">Clear All Hours Data</button>
         </div>
         <button class="btn1" onclick="saveSettings()">Save Settings</button>
+    </div>
+</div>
+
+<!-- Add task overlay -->
+<div class="sov" id="tov" onclick="closeAddTaskFormIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">Add Task</div>
+        <div class="ssec">
+            <label class="slbl">Title <span style="color:var(--danger)">*</span></label>
+            <input class="sinp" id="t-title" type="text" placeholder="What needs to be done?">
+        </div>
+        <div class="ssec">
+            <label class="slbl">Added by</label>
+            <div class="pbtn-row">
+                <button class="pbtn sel" id="tab-Angus" onclick="setTaskAddedBy('Angus')">Angus</button>
+                <button class="pbtn" id="tab-Jenna" onclick="setTaskAddedBy('Jenna')">Jenna</button>
+            </div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Priority</label>
+            <div class="pbtn-row">
+                <button class="pbtn" id="tpb-low" onclick="setTaskPriority('low')">Low</button>
+                <button class="pbtn sel" id="tpb-normal" onclick="setTaskPriority('normal')">Normal</button>
+                <button class="pbtn urgent" id="tpb-urgent" onclick="setTaskPriority('urgent')">Urgent</button>
+            </div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Due date (optional)</label>
+            <input class="sinp" id="t-due" type="date">
+        </div>
+        <div class="ssec">
+            <label class="slbl">Notes (optional)</label>
+            <textarea class="notes-inp" id="t-desc" rows="3" placeholder="Additional details…"></textarea>
+        </div>
+        <button class="btn1" onclick="submitTaskForm()">Add Task</button>
+        <button class="btn2" onclick="closeAddTaskForm()">Cancel</button>
+    </div>
+</div>
+
+<!-- Complete task overlay -->
+<div class="sov" id="cdov" onclick="closeCompleteTaskIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">Mark Task Done</div>
+        <div id="cd-task-title" style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:16px;padding:12px;background:var(--clean);border-radius:12px"></div>
+        <div class="ssec">
+            <label class="slbl">Completion Note (optional)</label>
+            <textarea class="notes-inp" id="cd-note" rows="3" placeholder="Any comments? What was done, anything to follow up?"></textarea>
+        </div>
+        <button class="btn1" onclick="submitCompleteTask()">Mark as Done</button>
+        <button class="btn2" onclick="closeCompleteTask()">Cancel</button>
+    </div>
+</div>
+
+<!-- Issue report overlay -->
+<div class="sov" id="iov" onclick="closeIssueFormIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">Report an Issue</div>
+        <div class="ssec">
+            <label class="slbl">Location</label>
+            <div id="i-locs" style="display:flex;flex-direction:column;gap:9px"></div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Priority</label>
+            <div style="display:flex;gap:9px">
+                <button id="i-p-normal" class="pri-btn sel" onclick="setIssuePriority('normal')">Normal</button>
+                <button id="i-p-urgent" class="pri-btn" onclick="setIssuePriority('urgent')">Urgent</button>
+            </div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Description</label>
+            <textarea class="notes-inp" id="i-desc" rows="4" placeholder="What needs attention? Be specific about where in the property…"></textarea>
+        </div>
+        <button class="btn1" onclick="submitIssueForm()">Submit Report</button>
+        <button class="btn2" onclick="closeIssueForm()">Cancel</button>
     </div>
 </div>
 
@@ -552,14 +664,14 @@ async function syncFromSupabase() {
                 .eq('resolved', false);
             if (remoteIssues) {
                 const localIssues = getIssues();
-                const remoteIds = new Set(remoteIssues.map(i => i.id));
-                const localOnly = localIssues.filter(i => !remoteIds.has(i.id) && !i.resolved);
-                if (localOnly.length > 0) {
-                    sbClient.from('maintenance_issues').upsert(localOnly).then(({ error: ie }) => {
+                const remoteIssueIds = new Set(remoteIssues.map(i => i.id));
+                const localOnlyIssues = localIssues.filter(i => !remoteIssueIds.has(i.id) && !i.resolved);
+                if (localOnlyIssues.length > 0) {
+                    sbClient.from('maintenance_issues').upsert(localOnlyIssues).then(({ error: ie }) => {
                         if (ie) console.warn('Issue upsert failed:', ie.message);
                     });
                 }
-                const mergedIssues = [...remoteIssues, ...localOnly].sort((a, b) =>
+                const mergedIssues = [...remoteIssues, ...localOnlyIssues].sort((a, b) =>
                     new Date(b.created_at) - new Date(a.created_at));
                 saveIssues(mergedIssues);
             }
@@ -570,15 +682,34 @@ async function syncFromSupabase() {
                 .eq('id', 1)
                 .single();
             if (remoteSettings) {
-                const local = JSON.parse(localStorage.getItem('ch_settings') || '{}');
-                const merged = {
-                    ...local,
-                    cleanerName: remoteSettings.cleaner_name || local.cleanerName,
-                    pin:         remoteSettings.pin          || local.pin,
-                    recipients:  remoteSettings.recipients   || local.recipients,
+                const localSt = JSON.parse(localStorage.getItem('ch_settings') || '{}');
+                const mergedSt = {
+                    ...localSt,
+                    cleanerName: remoteSettings.cleaner_name || localSt.cleanerName,
+                    pin:         remoteSettings.pin          || localSt.pin,
+                    recipients:  remoteSettings.recipients   || localSt.recipients,
                 };
-                localStorage.setItem('ch_settings', JSON.stringify(merged));
+                localStorage.setItem('ch_settings', JSON.stringify(mergedSt));
                 updateHeader();
+            }
+            // Sync tasks from Supabase
+            const { data: remoteTasks } = await sbClient
+                .from('tasks')
+                .select('*')
+                .order('created_at', { ascending: false });
+            if (remoteTasks) {
+                const localTasks = getTasks();
+                const remoteTaskIds = new Set(remoteTasks.map(t => t.id));
+                const localOnlyTasks = localTasks.filter(t => !remoteTaskIds.has(t.id));
+                if (localOnlyTasks.length > 0) {
+                    sbClient.from('tasks').upsert(localOnlyTasks).then(({ error: te }) => {
+                        if (te) console.warn('Task upsert failed:', te.message);
+                    });
+                }
+                const mergedTasks = [...remoteTasks, ...localOnlyTasks].sort((a, b) =>
+                    new Date(b.created_at) - new Date(a.created_at));
+                saveTasks(mergedTasks);
+                if (pinUnlocked && currentTab === 'tasks') renderTasks();
             }
             if (pinUnlocked) {
                 if (currentTab === 'home')  renderHome();
@@ -865,6 +996,7 @@ function showTab(tab) {
     document.querySelector('.scroll').scrollTop = 0;
     if (tab==='home')   renderHome();
     if (tab==='airbnb') renderAirbnb();
+    if (tab==='tasks')  renderTasks();
     if (tab==='log')    renderLog();
     if (tab==='week')   { weekOffset=0; renderWeek(); }
     if (tab==='month')  { monthOffset=0; renderMonth(); }
@@ -982,7 +1114,8 @@ function renderHome() {
                 ${tTotal>0?`<span style="font-size:.85rem;font-weight:700;color:var(--ocean)">${fh(tTotal)}h</span>`:''}
             </div>
             <div class="elist">${tHTML}</div>
-            <button class="btn1" style="margin-top:14px" onclick="showTab('log')">Log Hours</button>
+            ${(()=>{ const oi=getIssues().filter(i=>!i.resolved); return oi.length>0?`<div style="font-size:.72rem;color:var(--warn);text-align:center;margin-top:6px">${oi.length} open maintenance issue${oi.length>1?'s':''}</div>`:''; })()}
+            <button class="btn1" style="margin-top:10px" onclick="showTab('log')">Log Hours</button>
             ${tEntries.length > 0 ? `<button class="btn2" style="margin-top:8px" onclick="sendDailyReport('${today}')">Send Today's Report</button>` : ''}
             ${lastSentNote}
         </div>
@@ -1469,6 +1602,7 @@ function saveSettings() {
     storeSettings(s);
     pushSettingsToSupabase(s);
     initSupabase(); // reconnect with new credentials if changed
+    pushSettingsToSupabase(s);
     closeSettings();
     toast('Settings saved!', 'g');
     updateHeader();
@@ -1618,13 +1752,13 @@ async function submitIssueForm() {
     if (!desc) { toast('Please describe the issue', 'e'); return; }
 
     const issue = {
-        id:         Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        location:   issueFormLoc,
+        id:          Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        location:    issueFormLoc,
         description: desc,
-        priority:   issueFormPriority,
-        created_at: new Date().toISOString(),
-        resolved:   false,
-        notified:   false,
+        priority:    issueFormPriority,
+        created_at:  new Date().toISOString(),
+        resolved:    false,
+        notified:    false,
     };
 
     const issues = getIssues();
@@ -1645,7 +1779,8 @@ async function submitIssueForm() {
 
     const sent = await dispatchEmailSilent(subject, body);
     closeIssueForm();
-    renderHome();
+    if (currentTab === 'tasks') renderTasks();
+    if (currentTab === 'home')  renderHome();
     toast(sent ? 'Issue reported — owners notified' : 'Issue saved — owners notified tonight', 'g');
 }
 
@@ -1676,7 +1811,8 @@ function resolveIssue(id) {
             sbClient.from('maintenance_issues').update({ resolved: true }).eq('id', id)
                 .then(({ error }) => { if (error) console.warn('Issue resolve failed:', error.message); });
         }
-        renderHome();
+        if (currentTab === 'tasks') renderTasks();
+        if (currentTab === 'home')  renderHome();
         toast('Issue marked resolved', 'g');
     }, false);
 }
@@ -1692,7 +1828,7 @@ function issueItemHTML(issue) {
         <div class="issue-dot ${urgent ? 'urgent' : 'normal'}"></div>
         <div class="issue-info">
             <span class="issue-badge ${urgent ? 'urgent' : 'normal'}">${urgent ? 'Urgent' : 'Normal'}</span>
-            <div class="issue-loc">${locName}</div>
+            <div class="issue-loc">${escHtml(locName)}</div>
             <div class="issue-desc">${escHtml(issue.description)}</div>
             <div class="issue-meta">${date}</div>
         </div>
@@ -1702,6 +1838,188 @@ function issueItemHTML(issue) {
     </div>`;
 }
 
+// ============================================================
+// TASKS
+// ============================================================
+function getTasks() {
+    try { return JSON.parse(localStorage.getItem('ch_tasks') || '[]'); }
+    catch { return []; }
+}
+function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(tasks)); }
+
+let taskFormPriority = 'normal';
+let taskFormAddedBy  = 'Angus';
+let completingTaskId = null;
+
+function renderTasks() {
+    const tasks     = getTasks();
+    const openTasks = tasks.filter(t => t.status === 'open');
+    const doneTasks = tasks.filter(t => t.status === 'completed').slice(0, 10);
+    const issues    = getIssues().filter(i => !i.resolved);
+
+    const openHTML = openTasks.length > 0
+        ? openTasks.map(taskItemHTML).join('')
+        : `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
+
+    const doneHTML = doneTasks.length > 0
+        ? `<details style="margin-top:8px"><summary class="done-toggle">Completed (${doneTasks.length})</summary><div style="margin-top:8px">${doneTasks.map(t=>taskItemHTML(t)).join('')}</div></details>`
+        : '';
+
+    const issuesHTML = issues.length > 0
+        ? issues.slice(0, 10).map(issueItemHTML).join('')
+        : `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
+
+    document.getElementById('tab-tasks').innerHTML = `
+        <div class="card">
+            <div class="row-bet" style="margin-bottom:12px">
+                <span class="card-lbl" style="margin:0">Tasks for Angelica</span>
+                ${openTasks.length > 0 ? `<span class="badge r">${openTasks.length} open</span>` : ''}
+            </div>
+            ${openHTML}
+            ${doneHTML}
+            <button class="btn2" style="margin-top:10px" onclick="openAddTaskForm()">+ Add Task</button>
+        </div>
+        <div class="card">
+            <div class="row-bet" style="margin-bottom:12px">
+                <span class="card-lbl" style="margin:0">Maintenance Issues</span>
+                ${issues.length > 0 ? `<span class="badge r">${issues.length} open</span>` : ''}
+            </div>
+            ${issuesHTML}
+            <button class="btn2" style="margin-top:10px" onclick="openIssueForm()">Report an Issue</button>
+        </div>
+    `;
+}
+
+function taskItemHTML(task) {
+    const isDone   = task.status === 'completed';
+    const today    = todayStr();
+    const overdue  = task.due_date && task.due_date < today && !isDone;
+    const dueLabel = task.due_date ? `<div class="task-due ${overdue ? 'overdue' : 'ok'}">${overdue ? 'Overdue: ' : 'Due: '}${fmt(strToDate(task.due_date))}</div>` : '';
+    const doneBtn  = isDone ? '' : `<button class="rbtn" onclick="openCompleteTask('${task.id}')" title="Mark done">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+    </button>`;
+    const completionLine = isDone && task.completion_note
+        ? `<div class="task-desc" style="font-style:italic">"${escHtml(task.completion_note)}"</div>`
+        : '';
+    return `<div class="task-item ${isDone ? 'done' : ''}">
+        <div class="task-dot ${task.priority}"></div>
+        <div class="task-info">
+            ${dueLabel}
+            <span class="task-badge ${task.priority}">${task.priority.charAt(0).toUpperCase()+task.priority.slice(1)}</span>
+            <div class="task-title ${isDone ? 'done' : ''}">${escHtml(task.title)}</div>
+            ${task.description ? `<div class="task-desc">${escHtml(task.description)}</div>` : ''}
+            ${completionLine}
+            <div class="task-meta">Added by ${escHtml(task.added_by)} · ${fmt(strToDate(task.created_at.slice(0,10)))}</div>
+        </div>
+        ${doneBtn}
+    </div>`;
+}
+
+function openAddTaskForm() {
+    taskFormPriority = 'normal';
+    taskFormAddedBy  = 'Angus';
+    document.getElementById('t-title').value = '';
+    document.getElementById('t-desc').value  = '';
+    document.getElementById('t-due').value   = '';
+    ['Angus','Jenna'].forEach(w => {
+        const b = document.getElementById(`tab-${w}`);
+        if (b) b.classList.toggle('sel', w === 'Angus');
+    });
+    ['low','normal','urgent'].forEach(p => {
+        const b = document.getElementById(`tpb-${p}`);
+        if (b) { b.classList.remove('sel','urgent'); if (p === 'normal') b.classList.add('sel'); }
+    });
+    document.getElementById('tov').classList.add('on');
+}
+function closeAddTaskForm() { document.getElementById('tov').classList.remove('on'); }
+function closeAddTaskFormIfBg(e) { if (e.target === document.getElementById('tov')) closeAddTaskForm(); }
+
+function setTaskPriority(p) {
+    taskFormPriority = p;
+    ['low','normal','urgent'].forEach(pr => {
+        const b = document.getElementById(`tpb-${pr}`);
+        if (!b) return;
+        b.classList.remove('sel','urgent');
+        if (pr === p) {
+            b.classList.add('sel');
+            if (pr === 'urgent') b.classList.add('urgent');
+        }
+    });
+}
+
+function setTaskAddedBy(who) {
+    taskFormAddedBy = who;
+    ['Angus','Jenna'].forEach(w => {
+        const b = document.getElementById(`tab-${w}`);
+        if (b) b.classList.toggle('sel', w === who);
+    });
+}
+
+async function submitTaskForm() {
+    const title = document.getElementById('t-title').value.trim();
+    if (!title) { toast('Enter a task title', 'e'); return; }
+    const task = {
+        id:               Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+        title,
+        description:      document.getElementById('t-desc').value.trim(),
+        priority:         taskFormPriority,
+        due_date:         document.getElementById('t-due').value || null,
+        added_by:         taskFormAddedBy,
+        status:           'open',
+        completion_note:  '',
+        completed_at:     null,
+        created_at:       new Date().toISOString(),
+        notified_cleaner: false,
+        notified_owners:  false,
+    };
+    const tasks = getTasks();
+    tasks.unshift(task);
+    saveTasks(tasks);
+    if (sbClient) {
+        sbClient.from('tasks').insert(task).then(({ error }) => {
+            if (error) console.warn('Task insert failed:', error.message);
+        });
+    }
+    closeAddTaskForm();
+    renderTasks();
+    toast('Task added!', 'g');
+}
+
+function openCompleteTask(id) {
+    completingTaskId = id;
+    const task = getTasks().find(t => t.id === id);
+    if (!task) return;
+    document.getElementById('cd-task-title').textContent = task.title;
+    document.getElementById('cd-note').value = '';
+    document.getElementById('cdov').classList.add('on');
+}
+function closeCompleteTask() { document.getElementById('cdov').classList.remove('on'); completingTaskId = null; }
+function closeCompleteTaskIfBg(e) { if (e.target === document.getElementById('cdov')) closeCompleteTask(); }
+
+async function submitCompleteTask() {
+    if (!completingTaskId) return;
+    const note  = document.getElementById('cd-note').value.trim();
+    const tasks = getTasks();
+    const idx   = tasks.findIndex(t => t.id === completingTaskId);
+    if (idx === -1) return;
+    tasks[idx].status          = 'completed';
+    tasks[idx].completed_at    = new Date().toISOString();
+    tasks[idx].completion_note = note;
+    tasks[idx].notified_owners = false;
+    saveTasks(tasks);
+    if (sbClient) {
+        sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => {
+            if (error) console.warn('Task complete upsert failed:', error.message);
+        });
+    }
+    closeCompleteTask();
+    renderTasks();
+    toast('Task marked done!', 'g');
+}
+
+// ============================================================
+// SETTINGS PUSH TO SUPABASE
+// ============================================================
 function pushSettingsToSupabase(s) {
     if (!sbClient) return;
     sbClient.from('app_settings').upsert({

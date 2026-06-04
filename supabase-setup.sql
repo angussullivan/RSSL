@@ -41,11 +41,11 @@ CREATE POLICY "service_write" ON public.airbnb_bookings
     USING (true)
     WITH CHECK (true);
 
--- Maintenance issues table (written by app, read by GitHub Actions for alert emails)
+-- Maintenance issues table (reported by cleaner, read/resolved by all)
 CREATE TABLE IF NOT EXISTS public.maintenance_issues (
     id          text PRIMARY KEY,
     location    text NOT NULL,
-    description text NOT NULL,
+    description text NOT NULL DEFAULT '',
     priority    text NOT NULL DEFAULT 'normal',
     created_at  timestamptz DEFAULT now(),
     resolved    boolean DEFAULT false,
@@ -59,18 +59,41 @@ CREATE POLICY "app_all_issues" ON public.maintenance_issues
     USING (true)
     WITH CHECK (true);
 
--- App settings table (shared across devices via Supabase)
+-- App settings table (synced across devices)
 CREATE TABLE IF NOT EXISTS public.app_settings (
     id           integer PRIMARY KEY DEFAULT 1,
-    cleaner_name text,
-    pin          text,
-    recipients   jsonb,
+    cleaner_name text DEFAULT 'Our Cleaner',
+    pin          text DEFAULT '1234',
+    recipients   jsonb DEFAULT '[]',
     updated_at   timestamptz DEFAULT now()
 );
 
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "app_all_settings" ON public.app_settings
+    FOR ALL TO anon
+    USING (true)
+    WITH CHECK (true);
+
+-- Tasks table (owner-to-cleaner tasks, synced across devices)
+CREATE TABLE IF NOT EXISTS public.tasks (
+    id               text PRIMARY KEY,
+    title            text NOT NULL,
+    description      text DEFAULT '',
+    priority         text NOT NULL DEFAULT 'normal',
+    due_date         date,
+    added_by         text NOT NULL DEFAULT 'Owner',
+    status           text NOT NULL DEFAULT 'open',
+    completion_note  text DEFAULT '',
+    completed_at     timestamptz,
+    created_at       timestamptz DEFAULT now(),
+    notified_cleaner boolean DEFAULT false,
+    notified_owners  boolean DEFAULT false
+);
+
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_all_tasks" ON public.tasks
     FOR ALL TO anon
     USING (true)
     WITH CHECK (true);
