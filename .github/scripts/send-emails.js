@@ -268,6 +268,54 @@ function buildMonthlySummary(entries, year, month) {
     `);
 }
 
+// ── TASK EMAIL BUILDERS ──────────────────────────────────────
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function buildNewTasksEmail(tasks) {
+    const PRIORITY_LABELS = { low: 'Low', normal: 'Normal', urgent: 'URGENT' };
+    const rows = tasks.map(t => {
+        const urgent = t.priority === 'urgent';
+        const due = t.due_date ? `<div style="font-size:0.75rem;color:#E67E22;margin-top:2px">Due: ${t.due_date}</div>` : '';
+        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+            <div style="margin-bottom:4px">
+                ${urgent ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>` : `<span style="background:#e8f4fa;color:#1B4965;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">${PRIORITY_LABELS[t.priority]||'Normal'}</span>`}
+                <span style="font-size:0.8rem;color:#888;margin-left:6px">from ${escHtml(t.added_by)}</span>
+            </div>
+            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50">${escHtml(t.title)}</div>
+            ${t.description ? `<div style="font-size:0.82rem;color:#5D7285;margin-top:3px">${escHtml(t.description)}</div>` : ''}
+            ${due}
+        </td></tr>`;
+    }).join('');
+    return wrap(`New Task${tasks.length > 1 ? 's' : ''} Assigned`, `
+        <p style="color:#2C3E50">Hi Angelica,</p>
+        <p style="color:#5D7285;margin-bottom:16px">You have ${tasks.length} new task${tasks.length > 1 ? 's' : ''} assigned:</p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <p style="text-align:center;margin-top:20px">
+            <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
+        </p>
+    `);
+}
+
+function buildCompletedTasksEmail(tasks) {
+    const rows = tasks.map(t => {
+        const completedDate = t.completed_at ? new Date(t.completed_at).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }) : '';
+        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50;text-decoration:line-through;opacity:0.7">${escHtml(t.title)}</div>
+            ${t.completion_note ? `<div style="font-size:0.85rem;color:#5D7285;margin-top:4px;font-style:italic">"${escHtml(t.completion_note)}"</div>` : ''}
+            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">Completed ${completedDate}</div>
+        </td></tr>`;
+    }).join('');
+    return wrap(`Task${tasks.length > 1 ? 's' : ''} Completed`, `
+        <p style="color:#2C3E50">Good news — ${tasks.length} task${tasks.length > 1 ? 's have' : ' has'} been completed:</p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <p style="text-align:center;margin-top:20px">
+            <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
+        </p>
+    `);
+}
+
 // ── SEND HELPER ──────────────────────────────────────────────
 async function send({ to, cc, subject, html }) {
     const info = await transport.sendMail({
@@ -333,6 +381,45 @@ async function main() {
         await supabase.from('maintenance_issues')
             .update({ notified: true })
             .in('id', newIssues.map(i => i.id));
+    }
+
+    // ── Always: notify Angelica of new tasks ────────────────────
+    const { data: newTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('notified_cleaner', false)
+        .eq('status', 'open');
+
+    if (newTasks && newTasks.length > 0) {
+        console.log(`Notifying Angelica of ${newTasks.length} new task(s)`);
+        await send({
+            to: ANGELICA,
+            cc: OWNERS,
+            subject: `New task${newTasks.length > 1 ? 's' : ''} for you — ${newTasks.length} item${newTasks.length > 1 ? 's' : ''}`,
+            html: buildNewTasksEmail(newTasks),
+        });
+        await supabase.from('tasks')
+            .update({ notified_cleaner: true })
+            .in('id', newTasks.map(t => t.id));
+    }
+
+    // ── Always: notify owners of completed tasks ─────────────────
+    const { data: completedTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('notified_owners', false)
+        .eq('status', 'completed');
+
+    if (completedTasks && completedTasks.length > 0) {
+        console.log(`Notifying owners of ${completedTasks.length} completed task(s)`);
+        await send({
+            to: OWNERS,
+            subject: `Task${completedTasks.length > 1 ? 's' : ''} completed — ${completedTasks.length} item${completedTasks.length > 1 ? 's' : ''}`,
+            html: buildCompletedTasksEmail(completedTasks),
+        });
+        await supabase.from('tasks')
+            .update({ notified_owners: true })
+            .in('id', completedTasks.map(t => t.id));
     }
 
     // ── 9pm: reminder if no entries today ───────────────────
