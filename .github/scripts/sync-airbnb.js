@@ -21,6 +21,48 @@ const ROOMS = [
 const EVERYONE = ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildMaintenanceAlertEmail(issues) {
+    const LOCS_MAP = { airbnb: 'Reservoir St Airbnb Rooms', laundry: 'Reservoir St Laundry', tamarama: 'Tamarama Home' };
+    const rows = issues.map(issue => {
+        const locName  = LOCS_MAP[issue.location] || issue.location;
+        const urgent   = issue.priority === 'urgent';
+        const reported = new Date(issue.created_at).toLocaleString('en-AU', {
+            timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short'
+        });
+        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
+            <div style="margin-bottom:5px">
+                ${urgent
+                    ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>`
+                    : `<span style="background:#f0f0f0;color:#666;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">Normal</span>`}
+                <span style="font-size:0.8rem;color:#888;margin-left:6px">${escHtml(locName)}</span>
+            </div>
+            <div style="font-size:0.92rem;color:#2C3E50;line-height:1.45">${escHtml(issue.description)}</div>
+            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">${reported}</div>
+        </td></tr>`;
+    }).join('');
+    const title = `Maintenance Issue${issues.length > 1 ? 's' : ''} Reported`;
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
+  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
+    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">${title}</h2>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
+  </div>
+  <div style="padding:24px 28px">
+    <p style="color:#2C3E50;margin-bottom:16px">The following maintenance issue${issues.length > 1 ? 's have' : ' has'} been flagged:</p>
+    <table style="width:100%;border-collapse:collapse">${rows}</table>
+    <p style="text-align:center;margin-top:20px">
+      <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+         style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
+    </p>
+  </div>
+  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
+    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
+  </div>
+</div></body></html>`;
+}
+
 function parseDate(s) {
     return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
 }
@@ -197,6 +239,33 @@ async function main() {
     }
 
     console.log(`Done — ${allBookings.length} bookings synced`);
+
+    // Check for unnotified maintenance issues and send alert email
+    if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+        const { data: newIssues } = await supabase
+            .from('maintenance_issues')
+            .select('*')
+            .eq('notified', false)
+            .eq('resolved', false);
+
+        if (newIssues && newIssues.length > 0) {
+            console.log(`Sending maintenance alert for ${newIssues.length} unnotified issue(s)`);
+            const transport = nodemailer.createTransport({
+                host: 'smtp.gmail.com', port: 587, secure: false,
+                auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+            });
+            await transport.sendMail({
+                from:    `"Hours Tracker" <${GMAIL_USER}>`,
+                to:      EVERYONE.join(', '),
+                subject: `Maintenance Issue${newIssues.length > 1 ? 's' : ''} Reported — ${newIssues.length} item${newIssues.length > 1 ? 's' : ''}`,
+                html:    buildMaintenanceAlertEmail(newIssues),
+            });
+            await supabase.from('maintenance_issues')
+                .update({ notified: true })
+                .in('id', newIssues.map(i => i.id));
+            console.log('  Maintenance alert sent and issues marked notified');
+        }
+    }
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1); });
