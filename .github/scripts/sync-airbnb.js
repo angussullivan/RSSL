@@ -174,7 +174,7 @@ async function main() {
         console.log(`  ${upcoming.length} upcoming events`);
         for (const e of upcoming) {
             allBookings.push({
-                id:         `${room.name.replace(' ','').toLowerCase()}-${e.uid}`,
+                id:         `${room.name.replaceAll(' ','').toLowerCase()}-${e.uid}`,
                 room:       room.name,
                 checkin:    e.checkin,
                 checkout:   e.checkout,
