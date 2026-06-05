@@ -231,9 +231,9 @@ function buildMonthlySummary(entries, year, month) {
     let wd = new Date(year, month, 1);
     const firstDay = wd.getDay();
     wd.setDate(wd.getDate() - (firstDay === 0 ? 6 : firstDay - 1));
+    const lastDay = new Date(year, month + 1, 0);
     let wkNum = 1;
-    while (wd.getMonth() <= month && wd.getFullYear() === year || wd.getFullYear() < year) {
-        if (wd.getFullYear() > year || (wd.getFullYear() === year && wd.getMonth() > month)) break;
+    while (wd <= lastDay) {
         const wDates = Array.from({ length: 7 }, (_, i) => {
             const dd = new Date(wd); dd.setDate(dd.getDate() + i);
             return `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
@@ -374,11 +374,16 @@ async function main() {
             .eq('date', todayStr);
         if (e1) throw e1;
 
+        // Compute Sydney midnight as a UTC ISO timestamp so tasks completed before
+        // midnight UTC (but after midnight Sydney) are not excluded.
+        const secsSinceSydneyMidnight =
+            sydneyNow.getHours() * 3600 + sydneyNow.getMinutes() * 60 + sydneyNow.getSeconds();
+        const sydneyMidnightUTC = new Date(Date.now() - secsSinceSydneyMidnight * 1000).toISOString();
         const { data: completedTasksToday } = await supabase
             .from('tasks')
             .select('*')
             .eq('status', 'completed')
-            .gte('completed_at', todayStr);
+            .gte('completed_at', sydneyMidnightUTC);
 
         console.log(`Sending daily summary (${todayEntries.length} entries, ${(completedTasksToday||[]).length} tasks completed today)`);
         await send({
