@@ -47,13 +47,15 @@ function buildEventBody(block) {
 
 async function main() {
     // 1. Fetch upcoming cleaning blocks — exclude auto-generated Airbnb checkout blocks
+    //    at the database level (id pattern '%-auto') so they never reach this script.
     const { data: blocks, error: sbErr } = await supabase
         .from('cleaning_blocks')
         .select('*')
-        .gte('date', todayStr);
+        .gte('date', todayStr)
+        .not('id', 'like', '%-auto');
     if (sbErr) throw new Error(`Supabase fetch failed: ${sbErr.message}`);
 
-    const manual = (blocks || []).filter(b => !b.id.endsWith('-auto'));
+    const manual = blocks || [];
     console.log(`${manual.length} manual cleaning block(s) in Supabase`);
 
     // 2. Fetch all future events from the calendar that this script manages
@@ -94,11 +96,12 @@ async function main() {
         }
     }
 
-    // 4. Delete calendar events whose blocks have been removed from the app
+    // 4. Delete calendar events whose blocks have been removed from the app,
+    //    or that were wrongly created for auto-generated Airbnb blocks.
     for (const [blockId, event] of eventByBlockId) {
-        if (!blockIds.has(blockId)) {
+        if (!blockIds.has(blockId) || blockId.endsWith('-auto')) {
             await calendar.events.delete({ calendarId: CALENDAR_ID, eventId: event.id });
-            console.log(`  Deleted orphaned event for removed block ${blockId}`);
+            console.log(`  Deleted ${blockId.endsWith('-auto') ? 'Airbnb auto-block' : 'orphaned'} event for block ${blockId}`);
         }
     }
 
