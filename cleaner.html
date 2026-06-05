@@ -584,7 +584,7 @@ function storeSettings(s) { localStorage.setItem('ch_settings', JSON.stringify(s
 // DATE UTILS
 // ============================================================
 function todayStr() { return dateToStr(new Date()); }
-function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function dateToStr(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -611,7 +611,7 @@ function fmt(d) {
 function fmtShort(d) { return `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0,3)}`; }
 function fh(h) {
     if (h === 0) return '0';
-    return Number.isInteger(h*10) ? (Number.isInteger(h) ? `${h}` : h.toFixed(1)) : h.toFixed(1);
+    return h % 1 === 0 ? String(h) : h.toFixed(1);
 }
 
 // ============================================================
@@ -630,106 +630,108 @@ function initSupabase() {
 async function syncFromSupabase() {
     if (!sbClient) return;
     try {
-        const { data, error } = await sbClient
-            .from('hours_entries')
-            .select('*')
-            .order('date', { ascending: false });
-        if (error) throw error;
-        if (data) {
-            const deletedIds = getDeletedIds();
-            // Re-issue deletes for any tombstoned entries still in Supabase
-            const stillInRemote = data.filter(e => deletedIds.has(e.id));
-            stillInRemote.forEach(e => sbClient.from('hours_entries').delete().eq('id', e.id).then(({ error: de }) => {
+        const [
+            { data: entriesData, error: entriesErr },
+            { data: remoteIssues },
+            { data: remoteSettings },
+            { data: remoteTasks },
+            { data: remoteBlocks },
+        ] = await Promise.all([
+            sbClient.from('hours_entries').select('*').order('date', { ascending: false }),
+            sbClient.from('maintenance_issues').select('*').order('created_at', { ascending: false }),
+            sbClient.from('app_settings').select('*').eq('id', 1).single(),
+            sbClient.from('tasks').select('*').order('created_at', { ascending: false }),
+            sbClient.from('cleaning_blocks').select('*').gte('date', todayStr()),
+        ]);
+
+        if (entriesErr) throw entriesErr;
+        if (!entriesData) return;
+
+        // Sync hours entries
+        const deletedIds = getDeletedIds();
+        entriesData.filter(e => deletedIds.has(e.id)).forEach(e =>
+            sbClient.from('hours_entries').delete().eq('id', e.id).then(({ error: de }) => {
                 if (de) console.warn('Supabase re-delete failed:', de.message);
+            })
+        );
+        const remoteClean = entriesData.filter(e => !deletedIds.has(e.id));
+        const local = getData().entries;
+        const remoteIds = new Set(remoteClean.map(e => e.id));
+        const localOnly = local.filter(e => !remoteIds.has(e.id) && !deletedIds.has(e.id));
+        if (localOnly.length > 0) {
+            sbClient.from('hours_entries').upsert(localOnly).then(({ error: ue }) => {
+                if (ue) console.warn('Supabase upsert failed:', ue.message);
+            });
+        }
+        saveData({ entries: [...remoteClean, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)) });
+
+        // Sync maintenance issues — fetch all so resolved state propagates across devices
+        if (remoteIssues) {
+            const localIssues = getIssues();
+            const remoteIssueIds = new Set(remoteIssues.map(i => i.id));
+            const localOnlyIssues = localIssues.filter(i => !remoteIssueIds.has(i.id) && !i.resolved);
+            if (localOnlyIssues.length > 0) {
+                sbClient.from('maintenance_issues').upsert(localOnlyIssues).then(({ error: ie }) => {
+                    if (ie) console.warn('Issue upsert failed:', ie.message);
+                });
+            }
+            saveIssues([...remoteIssues, ...localOnlyIssues].sort((a, b) =>
+                new Date(b.created_at) - new Date(a.created_at)));
+        }
+
+        // Sync app settings
+        if (remoteSettings) {
+            const localSt = JSON.parse(localStorage.getItem('ch_settings') || '{}');
+            localStorage.setItem('ch_settings', JSON.stringify({
+                ...localSt,
+                cleanerName: remoteSettings.cleaner_name || localSt.cleanerName,
+                pin:         remoteSettings.pin          || localSt.pin,
+                recipients:  remoteSettings.recipients   || localSt.recipients,
             }));
-            // Filter remote data to exclude tombstoned entries
-            const remoteClean = data.filter(e => !deletedIds.has(e.id));
-            // Merge: keep any locally-stored entries not yet in Supabase
-            const local = getData().entries;
-            const remoteIds = new Set(remoteClean.map(e => e.id));
-            const localOnly = local.filter(e => !remoteIds.has(e.id) && !deletedIds.has(e.id));
-            // Push any local-only entries up to Supabase
-            if (localOnly.length > 0) {
-                sbClient.from('hours_entries').upsert(localOnly).then(({ error: ue }) => {
-                    if (ue) console.warn('Supabase upsert failed:', ue.message);
+            updateHeader();
+        }
+
+        // Sync tasks
+        if (remoteTasks) {
+            const localTasks = getTasks();
+            const remoteTaskIds = new Set(remoteTasks.map(t => t.id));
+            const localOnlyTasks = localTasks.filter(t => !remoteTaskIds.has(t.id));
+            if (localOnlyTasks.length > 0) {
+                sbClient.from('tasks').upsert(localOnlyTasks).then(({ error: te }) => {
+                    if (te) console.warn('Task upsert failed:', te.message);
                 });
             }
-            const merged = [...remoteClean, ...localOnly].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-            saveData({ entries: merged });
-            // Sync maintenance issues from Supabase
-            const { data: remoteIssues } = await sbClient
-                .from('maintenance_issues')
-                .select('*')
-                .eq('resolved', false);
-            if (remoteIssues) {
-                const localIssues = getIssues();
-                const remoteIssueIds = new Set(remoteIssues.map(i => i.id));
-                const localOnlyIssues = localIssues.filter(i => !remoteIssueIds.has(i.id) && !i.resolved);
-                if (localOnlyIssues.length > 0) {
-                    sbClient.from('maintenance_issues').upsert(localOnlyIssues).then(({ error: ie }) => {
-                        if (ie) console.warn('Issue upsert failed:', ie.message);
-                    });
-                }
-                const mergedIssues = [...remoteIssues, ...localOnlyIssues].sort((a, b) =>
-                    new Date(b.created_at) - new Date(a.created_at));
-                saveIssues(mergedIssues);
-            }
-            // Sync app settings from Supabase
-            const { data: remoteSettings } = await sbClient
-                .from('app_settings')
-                .select('*')
-                .eq('id', 1)
-                .single();
-            if (remoteSettings) {
-                const localSt = JSON.parse(localStorage.getItem('ch_settings') || '{}');
-                const mergedSt = {
-                    ...localSt,
-                    cleanerName: remoteSettings.cleaner_name || localSt.cleanerName,
-                    pin:         remoteSettings.pin          || localSt.pin,
-                    recipients:  remoteSettings.recipients   || localSt.recipients,
-                };
-                localStorage.setItem('ch_settings', JSON.stringify(mergedSt));
-                updateHeader();
-            }
-            // Sync tasks from Supabase
-            const { data: remoteTasks } = await sbClient
-                .from('tasks')
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (remoteTasks) {
-                const localTasks = getTasks();
-                const remoteTaskIds = new Set(remoteTasks.map(t => t.id));
-                const localOnlyTasks = localTasks.filter(t => !remoteTaskIds.has(t.id));
-                if (localOnlyTasks.length > 0) {
-                    sbClient.from('tasks').upsert(localOnlyTasks).then(({ error: te }) => {
-                        if (te) console.warn('Task upsert failed:', te.message);
-                    });
-                }
-                const mergedTasks = [...remoteTasks, ...localOnlyTasks].sort((a, b) =>
-                    new Date(b.created_at) - new Date(a.created_at));
-                saveTasks(mergedTasks);
-                if (pinUnlocked && currentTab === 'tasks') renderTasks();
-            }
-            // Sync cleaning blocks from Supabase
-            const { data: remoteBlocks } = await sbClient
-                .from('cleaning_blocks')
-                .select('*')
-                .gte('date', todayStr());
-            if (remoteBlocks) {
-                const localBlocks = getCleaningBlocks();
-                remoteBlocks.forEach(b => {
-                    const ds = typeof b.date === 'string' ? b.date : b.date;
-                    if (!localBlocks[ds]) localBlocks[ds] = [];
-                    if (!localBlocks[ds].find(x => x.id === b.id)) localBlocks[ds].push(b);
+            saveTasks([...remoteTasks, ...localOnlyTasks].sort((a, b) =>
+                new Date(b.created_at) - new Date(a.created_at)));
+            if (pinUnlocked && currentTab === 'tasks') renderTasks();
+        }
+
+        // Sync cleaning blocks (bidirectional)
+        if (remoteBlocks) {
+            const localBlocks = getCleaningBlocks();
+            const remoteBlockIds = new Set(remoteBlocks.map(b => b.id));
+            const localOnlyBlocks = [];
+            Object.values(localBlocks).forEach(arr => arr.forEach(b => {
+                if (!remoteBlockIds.has(b.id)) localOnlyBlocks.push(b);
+            }));
+            if (localOnlyBlocks.length > 0) {
+                sbClient.from('cleaning_blocks').upsert(localOnlyBlocks).then(({ error }) => {
+                    if (error) console.warn('Cleaning block push failed:', error.message);
                 });
-                saveCleaningBlocks(localBlocks);
-                if (pinUnlocked && currentTab === 'airbnb') renderAirbnb();
             }
-            if (pinUnlocked) {
-                if (currentTab === 'home')  renderHome();
-                if (currentTab === 'week')  renderWeek();
-                if (currentTab === 'month') renderMonth();
-            }
+            remoteBlocks.forEach(b => {
+                const ds = b.date;
+                if (!localBlocks[ds]) localBlocks[ds] = [];
+                if (!localBlocks[ds].find(x => x.id === b.id)) localBlocks[ds].push(b);
+            });
+            saveCleaningBlocks(localBlocks);
+            if (pinUnlocked && currentTab === 'airbnb') renderAirbnb();
+        }
+
+        if (pinUnlocked) {
+            if (currentTab === 'home')  renderHome();
+            if (currentTab === 'week')  renderWeek();
+            if (currentTab === 'month') renderMonth();
         }
     } catch(e) {
         console.warn('Supabase sync failed, using local data:', e.message);
@@ -1189,9 +1191,7 @@ async function renderHomeAirbnb() {
     const isToday    = nextDate === today;
     const [y, m, d]  = nextDate.split('-').map(Number);
     const dt         = new Date(y, m - 1, d);
-    const dayNames   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const dateLabel  = isToday ? 'Today' : `${dayNames[dt.getDay()]} ${d} ${monthNames[m - 1]}`;
+    const dateLabel  = isToday ? 'Today' : `${DAY_NAMES[dt.getDay()]} ${d} ${MONTH_NAMES[m - 1].slice(0,3)}`;
 
     const checkouts = data.filter(b => b.checkout === nextDate).sort((a,b) => a.room.localeCompare(b.room));
     const checkins  = data.filter(b => b.checkin  === nextDate).sort((a,b) => a.room.localeCompare(b.room));
@@ -1226,13 +1226,11 @@ async function renderHomeAirbnb() {
 // AIRBNB TAB
 // ============================================================
 const AIRBNB_DAYS = 10;
-const DAY_NAMES_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function fmtAirbnbDate(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dt = new Date(y, m - 1, d);
-    return `${DAY_NAMES_SHORT[dt.getDay()]} ${d} ${MONTH_NAMES_SHORT[m - 1]}`;
+    return `${DAY_SHORT[dt.getDay()]} ${d} ${MONTH_NAMES[m - 1].slice(0,3)}`;
 }
 
 function fmtTime(t) {
@@ -1724,7 +1722,6 @@ function saveSettings() {
     s.supabaseUrl     = document.getElementById('s-sburl').value.trim();
     s.supabaseAnonKey = document.getElementById('s-sbkey').value.trim();
     storeSettings(s);
-    pushSettingsToSupabase(s);
     initSupabase(); // reconnect with new credentials if changed
     pushSettingsToSupabase(s);
     closeSettings();
@@ -1733,7 +1730,7 @@ function saveSettings() {
 }
 
 function confirmClearData() {
-    confirm('Clear all data?', 'This will permanently delete all logged hours. This cannot be undone.', 'Delete Everything', () => {
+    showConfirm('Clear all data?', 'This will permanently delete all logged hours. This cannot be undone.', 'Delete Everything', () => {
         saveData({ entries: [] });
         const s = getSettings(); s.lastSent = null; storeSettings(s);
         closeSettings();
@@ -1745,7 +1742,7 @@ function confirmClearData() {
 // ============================================================
 // CONFIRM
 // ============================================================
-function confirm(title, msg, okLabel, cb, danger=true) {
+function showConfirm(title, msg, okLabel, cb, danger=true) {
     document.getElementById('ctitle').textContent = title;
     document.getElementById('cmsg').textContent   = msg;
     const btn = document.getElementById('cok-btn');
@@ -1764,7 +1761,7 @@ function confirmDelete(id) {
     const entry = getData().entries.find(e=>e.id===id);
     if (!entry) return;
     const loc = LOCS.find(l=>l.id===entry.location);
-    confirm(
+    showConfirm(
         'Delete entry?',
         `${loc?.name||entry.location} · ${fh(entry.hours)}h on ${fmt(strToDate(entry.date))}`,
         'Delete',
@@ -1937,7 +1934,7 @@ async function dispatchEmailSilent(subject, body) {
 }
 
 function resolveIssue(id) {
-    confirm('Resolve issue?', 'Mark this issue as fixed and remove it from the open list.', 'Resolve', () => {
+    showConfirm('Resolve issue?', 'Mark this issue as fixed and remove it from the open list.', 'Resolve', () => {
         const issues = getIssues();
         const idx = issues.findIndex(i => i.id === id);
         if (idx !== -1) issues[idx].resolved = true;
