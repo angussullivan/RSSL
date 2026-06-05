@@ -97,3 +97,20 @@ CREATE POLICY "app_all_tasks" ON public.tasks
     FOR ALL TO anon
     USING (true)
     WITH CHECK (true);
+
+-- Cleaning blocks table (cleaning schedule for the cleaner)
+CREATE TABLE IF NOT EXISTS public.cleaning_blocks (
+    id          text PRIMARY KEY,  -- equals the date string YYYY-MM-DD
+    date        date NOT NULL,
+    start_time  text NOT NULL DEFAULT '11:00',
+    end_time    text NOT NULL DEFAULT '14:00',
+    notes       text DEFAULT '',
+    created_at  timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.cleaning_blocks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "app_all_cleaning" ON public.cleaning_blocks
+    FOR ALL TO anon
+    USING (true)
+    WITH CHECK (true);
