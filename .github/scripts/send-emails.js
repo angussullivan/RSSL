@@ -28,7 +28,7 @@ const LOCS = {
     tamarama: 'Tamarama Home',
 };
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── SYDNEY TIME ─────────────────────────────────────────────
 // Get the current date/time in Sydney (handles AEST/AEDT automatically)
@@ -135,11 +135,10 @@ function buildReminder() {
     `);
 }
 
-function buildDailySummary(entries) {
+function buildDailySummary(entries, completedTasks = []) {
     const total = entries.reduce((a, e) => a + parseFloat(e.hours), 0);
     const date  = fmtDateFull(todayStr);
 
-    let locRows = LOCS;
     let tableRows = '';
     Object.entries(LOCS).forEach(([id, name]) => {
         const h = entries.filter(e => e.location === id).reduce((a, e) => a + parseFloat(e.hours), 0);
@@ -161,7 +160,18 @@ function buildDailySummary(entries) {
             </tr>
            </table>`;
 
-    return wrap(`Daily Summary — ${date}`, `<p style="color:#5D7285;margin-top:0">${date}</p>${body}`);
+    let tasksSection = '';
+    if (completedTasks.length > 0) {
+        const taskRows = completedTasks.map(t => `<tr><td style="padding:9px 0;border-bottom:1px solid #f0f0f0">
+            <span style="color:#27AE60;font-size:.7rem;font-weight:700;margin-right:6px">✓</span><span style="color:#2C3E50;font-size:.88rem">${escHtml(t.title)}</span>
+            ${t.completion_note ? `<div style="font-size:.78rem;color:#5D7285;font-style:italic;margin-top:2px">"${escHtml(t.completion_note)}"</div>` : ''}
+        </td></tr>`).join('');
+        tasksSection = `
+            <p style="font-size:.7rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#aaa;margin:20px 0 6px">Tasks Completed Today</p>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:8px">${taskRows}</table>`;
+    }
+
+    return wrap(`Daily Summary — ${date}`, `<p style="color:#5D7285;margin-top:0">${date}</p>${body}${tasksSection}`);
 }
 
 function buildWeeklySummary(entries, weekDates) {
@@ -268,54 +278,6 @@ function buildMonthlySummary(entries, year, month) {
     `);
 }
 
-// ── TASK EMAIL BUILDERS ──────────────────────────────────────
-function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function buildNewTasksEmail(tasks) {
-    const PRIORITY_LABELS = { low: 'Low', normal: 'Normal', urgent: 'URGENT' };
-    const rows = tasks.map(t => {
-        const urgent = t.priority === 'urgent';
-        const due = t.due_date ? `<div style="font-size:0.75rem;color:#E67E22;margin-top:2px">Due: ${t.due_date}</div>` : '';
-        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-            <div style="margin-bottom:4px">
-                ${urgent ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>` : `<span style="background:#e8f4fa;color:#1B4965;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">${PRIORITY_LABELS[t.priority]||'Normal'}</span>`}
-                <span style="font-size:0.8rem;color:#888;margin-left:6px">from ${escHtml(t.added_by)}</span>
-            </div>
-            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50">${escHtml(t.title)}</div>
-            ${t.description ? `<div style="font-size:0.82rem;color:#5D7285;margin-top:3px">${escHtml(t.description)}</div>` : ''}
-            ${due}
-        </td></tr>`;
-    }).join('');
-    return wrap(`New Task${tasks.length > 1 ? 's' : ''} Assigned`, `
-        <p style="color:#2C3E50">Hi Angelica,</p>
-        <p style="color:#5D7285;margin-bottom:16px">You have ${tasks.length} new task${tasks.length > 1 ? 's' : ''} assigned:</p>
-        <table style="width:100%;border-collapse:collapse">${rows}</table>
-        <p style="text-align:center;margin-top:20px">
-            <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
-        </p>
-    `);
-}
-
-function buildCompletedTasksEmail(tasks) {
-    const rows = tasks.map(t => {
-        const completedDate = t.completed_at ? new Date(t.completed_at).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }) : '';
-        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50;text-decoration:line-through;opacity:0.7">${escHtml(t.title)}</div>
-            ${t.completion_note ? `<div style="font-size:0.85rem;color:#5D7285;margin-top:4px;font-style:italic">"${escHtml(t.completion_note)}"</div>` : ''}
-            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">Completed ${completedDate}</div>
-        </td></tr>`;
-    }).join('');
-    return wrap(`Task${tasks.length > 1 ? 's' : ''} Completed`, `
-        <p style="color:#2C3E50">Good news — ${tasks.length} task${tasks.length > 1 ? 's have' : ' has'} been completed:</p>
-        <table style="width:100%;border-collapse:collapse">${rows}</table>
-        <p style="text-align:center;margin-top:20px">
-            <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
-        </p>
-    `);
-}
-
 // ── SEND HELPER ──────────────────────────────────────────────
 async function send({ to, cc, subject, html }) {
     const info = await transport.sendMail({
@@ -383,45 +345,6 @@ async function main() {
             .in('id', newIssues.map(i => i.id));
     }
 
-    // ── Always: notify Angelica of new tasks ────────────────────
-    const { data: newTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('notified_cleaner', false)
-        .eq('status', 'open');
-
-    if (newTasks && newTasks.length > 0) {
-        console.log(`Notifying Angelica of ${newTasks.length} new task(s)`);
-        await send({
-            to: ANGELICA,
-            cc: OWNERS,
-            subject: `New task${newTasks.length > 1 ? 's' : ''} for you — ${newTasks.length} item${newTasks.length > 1 ? 's' : ''}`,
-            html: buildNewTasksEmail(newTasks),
-        });
-        await supabase.from('tasks')
-            .update({ notified_cleaner: true })
-            .in('id', newTasks.map(t => t.id));
-    }
-
-    // ── Always: notify owners of completed tasks ─────────────────
-    const { data: completedTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('notified_owners', false)
-        .eq('status', 'completed');
-
-    if (completedTasks && completedTasks.length > 0) {
-        console.log(`Notifying owners of ${completedTasks.length} completed task(s)`);
-        await send({
-            to: OWNERS,
-            subject: `Task${completedTasks.length > 1 ? 's' : ''} completed — ${completedTasks.length} item${completedTasks.length > 1 ? 's' : ''}`,
-            html: buildCompletedTasksEmail(completedTasks),
-        });
-        await supabase.from('tasks')
-            .update({ notified_owners: true })
-            .in('id', completedTasks.map(t => t.id));
-    }
-
     // ── 9pm: reminder if no entries today ───────────────────
     if (is9pm) {
         const { data: todayEntries, error } = await supabase
@@ -451,11 +374,17 @@ async function main() {
             .eq('date', todayStr);
         if (e1) throw e1;
 
-        console.log(`Sending daily summary (${todayEntries.length} entries)`);
+        const { data: completedTasksToday } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('status', 'completed')
+            .gte('completed_at', todayStr);
+
+        console.log(`Sending daily summary (${todayEntries.length} entries, ${(completedTasksToday||[]).length} tasks completed today)`);
         await send({
             to: EVERYONE,
             subject: `Daily hours summary — ${fmtDateFull(todayStr)}`,
-            html: buildDailySummary(todayEntries),
+            html: buildDailySummary(todayEntries, completedTasksToday || []),
         });
 
         // ── Sunday: weekly summary ───────────────────────────

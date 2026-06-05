@@ -18,8 +18,6 @@ const ROOMS = [
     { name: 'Room 3', url: 'https://www.airbnb.com.au/calendar/ical/1177136108707135736.ics?t=b47454515ace4873b3ee27c1adfc185f' },
 ];
 
-const ANGELICA = 'angelicasuesscun@icloud.com';
-const OWNERS   = ['angussullivan@gmail.com', 'jenna4134@gmail.com'];
 const EVERYONE = ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'];
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -57,69 +55,6 @@ function buildMaintenanceAlertEmail(issues) {
     <p style="text-align:center;margin-top:20px">
       <a href="https://www.reservoirlaundry.com.au/cleaner.html"
          style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
-    </p>
-  </div>
-  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
-  </div>
-</div></body></html>`;
-}
-
-function buildNewTasksEmail(tasks) {
-    const PRIORITY_LABELS = { low: 'Low', normal: 'Normal', urgent: 'URGENT' };
-    const rows = tasks.map(t => {
-        const urgent = t.priority === 'urgent';
-        const due = t.due_date ? `<div style="font-size:0.75rem;color:#E67E22;margin-top:2px">Due: ${t.due_date}</div>` : '';
-        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-            <div style="margin-bottom:4px">
-                ${urgent ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>` : `<span style="background:#e8f4fa;color:#1B4965;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">${PRIORITY_LABELS[t.priority]||'Normal'}</span>`}
-                <span style="font-size:0.8rem;color:#888;margin-left:6px">from ${escHtml(t.added_by)}</span>
-            </div>
-            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50">${escHtml(t.title)}</div>
-            ${t.description ? `<div style="font-size:0.82rem;color:#5D7285;margin-top:3px">${escHtml(t.description)}</div>` : ''}
-            ${due}
-        </td></tr>`;
-    }).join('');
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
-  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
-    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">New Task${tasks.length > 1 ? 's' : ''} Assigned</h2>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
-  </div>
-  <div style="padding:24px 28px">
-    <p style="color:#2C3E50">Hi Angelica,</p>
-    <p style="color:#5D7285;margin-bottom:16px">You have ${tasks.length} new task${tasks.length > 1 ? 's' : ''} assigned:</p>
-    <table style="width:100%;border-collapse:collapse">${rows}</table>
-    <p style="text-align:center;margin-top:20px">
-      <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
-    </p>
-  </div>
-  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
-  </div>
-</div></body></html>`;
-}
-
-function buildCompletedTasksEmail(tasks) {
-    const rows = tasks.map(t => {
-        const completedDate = t.completed_at ? new Date(t.completed_at).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short' }) : '';
-        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-            <div style="font-size:0.95rem;font-weight:600;color:#2C3E50;text-decoration:line-through;opacity:0.7">${escHtml(t.title)}</div>
-            ${t.completion_note ? `<div style="font-size:0.85rem;color:#5D7285;margin-top:4px;font-style:italic">"${escHtml(t.completion_note)}"</div>` : ''}
-            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">Completed ${completedDate}</div>
-        </td></tr>`;
-    }).join('');
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
-  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
-    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">Task${tasks.length > 1 ? 's' : ''} Completed</h2>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
-  </div>
-  <div style="padding:24px 28px">
-    <p style="color:#2C3E50">Good news — ${tasks.length} task${tasks.length > 1 ? 's have' : ' has'} been completed:</p>
-    <table style="width:100%;border-collapse:collapse">${rows}</table>
-    <p style="text-align:center;margin-top:20px">
-      <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
     </p>
   </div>
   <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
@@ -332,48 +267,6 @@ async function main() {
             console.log('  Maintenance alert sent and issues marked notified');
         }
 
-        // Check for new tasks to notify Angelica about
-        const { data: newTasks } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('notified_cleaner', false)
-            .eq('status', 'open');
-
-        if (newTasks && newTasks.length > 0) {
-            console.log(`Notifying Angelica of ${newTasks.length} new task(s)`);
-            await transport2.sendMail({
-                from:    `"Hours Tracker" <${GMAIL_USER}>`,
-                to:      ANGELICA,
-                cc:      OWNERS.join(', '),
-                subject: `New task${newTasks.length > 1 ? 's' : ''} for you — ${newTasks.length} item${newTasks.length > 1 ? 's' : ''}`,
-                html:    buildNewTasksEmail(newTasks),
-            });
-            await supabase.from('tasks')
-                .update({ notified_cleaner: true })
-                .in('id', newTasks.map(t => t.id));
-            console.log('  New tasks notification sent');
-        }
-
-        // Check for completed tasks to notify owners about
-        const { data: completedTasks } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('notified_owners', false)
-            .eq('status', 'completed');
-
-        if (completedTasks && completedTasks.length > 0) {
-            console.log(`Notifying owners of ${completedTasks.length} completed task(s)`);
-            await transport2.sendMail({
-                from:    `"Hours Tracker" <${GMAIL_USER}>`,
-                to:      OWNERS.join(', '),
-                subject: `Task${completedTasks.length > 1 ? 's' : ''} completed — ${completedTasks.length} item${completedTasks.length > 1 ? 's' : ''}`,
-                html:    buildCompletedTasksEmail(completedTasks),
-            });
-            await supabase.from('tasks')
-                .update({ notified_owners: true })
-                .in('id', completedTasks.map(t => t.id));
-            console.log('  Completed tasks notification sent');
-        }
     }
 }
 

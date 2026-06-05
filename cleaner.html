@@ -1070,9 +1070,9 @@ function renderHome() {
         ? `<div style="font-size:.72rem;color:var(--text-light);text-align:center;margin-top:8px">Last report sent: ${fmt(strToDate(settings.lastSent))}</div>` : '';
 
     const openIssues = getIssues().filter(i => !i.resolved);
-    const issuesHTML = openIssues.length > 0
-        ? openIssues.slice(0, 5).map(issueItemHTML).join('')
-        : `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
+    const openTasks  = getTasks().filter(t => t.status === 'open');
+    const cutoff     = Date.now() - 24 * 60 * 60 * 1000;
+    const doneLast24 = getTasks().filter(t => t.status === 'completed' && t.completed_at && new Date(t.completed_at).getTime() > cutoff);
 
     document.getElementById('tab-home').innerHTML = `
         ${sunBanner}
@@ -1126,12 +1126,22 @@ function renderHome() {
         </div>
 
         <div class="card">
-            <div class="row-bet" style="margin-bottom:12px">
-                <span class="card-lbl" style="margin:0">Maintenance Issues</span>
-                ${openIssues.length > 0 ? `<span class="badge r">${openIssues.length} open</span>` : ''}
+            <div class="card-lbl" style="margin-bottom:12px">Tasks &amp; Issues</div>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+                <div style="flex:1;background:#f8f9fa;border-radius:10px;padding:12px;text-align:center">
+                    <div style="font-size:1.5rem;font-weight:700;color:${openTasks.length > 0 ? 'var(--ocean)' : '#ccc'}">${openTasks.length}</div>
+                    <div style="font-size:.68rem;color:#999;margin-top:2px">Open Tasks</div>
+                </div>
+                <div style="flex:1;background:#f8f9fa;border-radius:10px;padding:12px;text-align:center">
+                    <div style="font-size:1.5rem;font-weight:700;color:${openIssues.length > 0 ? 'var(--warn)' : '#ccc'}">${openIssues.length}</div>
+                    <div style="font-size:.68rem;color:#999;margin-top:2px">Open Issues</div>
+                </div>
+                <div style="flex:1;background:${doneLast24.length > 0 ? '#e6f9ef' : '#f8f9fa'};border-radius:10px;padding:12px;text-align:center">
+                    <div style="font-size:1.5rem;font-weight:700;color:${doneLast24.length > 0 ? 'var(--success)' : '#ccc'}">${doneLast24.length}</div>
+                    <div style="font-size:.68rem;color:#999;margin-top:2px">Done (24h)</div>
+                </div>
             </div>
-            ${issuesHTML}
-            <button class="btn2" style="margin-top:10px" onclick="openIssueForm()">Report an Issue</button>
+            <button class="btn2" onclick="showTab('tasks')">View Tasks &amp; Issues →</button>
         </div>
     `;
     renderHomeAirbnb();
