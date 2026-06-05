@@ -420,7 +420,7 @@
 <div class="sov" id="tov" onclick="closeAddTaskFormIfBg(event)">
     <div class="ssheet">
         <div class="shandle"></div>
-        <div class="stitle">Add Task</div>
+        <div class="stitle" id="tov-title">Add Task</div>
         <div class="ssec">
             <label class="slbl">Title <span style="color:var(--danger)">*</span></label>
             <input class="sinp" id="t-title" type="text" placeholder="What needs to be done?">
@@ -448,7 +448,7 @@
             <label class="slbl">Notes (optional)</label>
             <textarea class="notes-inp" id="t-desc" rows="3" placeholder="Additional details…"></textarea>
         </div>
-        <button class="btn1" onclick="submitTaskForm()">Add Task</button>
+        <button class="btn1" id="tov-submit" onclick="submitTaskForm()">Add Task</button>
         <button class="btn2" onclick="closeAddTaskForm()">Cancel</button>
     </div>
 </div>
@@ -472,7 +472,7 @@
 <div class="sov" id="iov" onclick="closeIssueFormIfBg(event)">
     <div class="ssheet">
         <div class="shandle"></div>
-        <div class="stitle">Report an Issue</div>
+        <div class="stitle" id="iov-title">Report an Issue</div>
         <div class="ssec">
             <label class="slbl">Location</label>
             <div id="i-locs" style="display:flex;flex-direction:column;gap:9px"></div>
@@ -488,7 +488,7 @@
             <label class="slbl">Description</label>
             <textarea class="notes-inp" id="i-desc" rows="4" placeholder="What needs attention? Be specific about where in the property…"></textarea>
         </div>
-        <button class="btn1" onclick="submitIssueForm()">Submit Report</button>
+        <button class="btn1" id="iov-submit" onclick="submitIssueForm()">Submit Report</button>
         <button class="btn2" onclick="closeIssueForm()">Cancel</button>
     </div>
 </div>
@@ -502,30 +502,6 @@
             <button class="ccancel" onclick="closeConfirm()">Cancel</button>
             <button class="cok" id="cok-btn">Delete</button>
         </div>
-    </div>
-</div>
-
-<!-- Issue report overlay -->
-<div class="sov" id="iov" onclick="closeIssueFormIfBg(event)">
-    <div class="ssheet">
-        <div class="shandle"></div>
-        <div class="stitle">Report an Issue</div>
-        <div class="ssec">
-            <label class="slbl">Location</label>
-            <div id="i-locs" style="display:flex;flex-direction:column;gap:9px"></div>
-        </div>
-        <div class="ssec">
-            <label class="slbl">Priority</label>
-            <div style="display:flex;gap:9px">
-                <button id="i-p-normal" class="pri-btn sel" onclick="setIssuePriority('normal')">Normal</button>
-                <button id="i-p-urgent" class="pri-btn" onclick="setIssuePriority('urgent')">Urgent</button>
-            </div>
-        </div>
-        <div class="ssec">
-            <label class="slbl">Description</label>
-            <textarea class="notes-inp" id="i-desc" rows="4" placeholder="What needs attention? Be specific about where in the property…"></textarea>
-        </div>
-        <button class="btn1" onclick="submitIssueForm()">Submit Report</button>
     </div>
 </div>
 
@@ -1721,20 +1697,25 @@ function saveIssues(issues) { localStorage.setItem('ch_issues', JSON.stringify(i
 
 let issueFormLoc      = null;
 let issueFormPriority = 'normal';
+let editingIssueId    = null;
 
-function openIssueForm() {
-    issueFormLoc      = null;
-    issueFormPriority = 'normal';
+function openIssueForm(id = null) {
+    editingIssueId = id;
+    const issue = id ? getIssues().find(i => i.id === id) : null;
+    issueFormLoc      = issue ? issue.location : null;
+    issueFormPriority = issue ? issue.priority : 'normal';
     document.getElementById('i-locs').innerHTML = LOCS.map(l => `
-        <button class="lbtn" id="ilbtn-${l.id}" onclick="setIssueLoc('${l.id}')">
+        <button class="lbtn${issue && issue.location === l.id ? ' sel' : ''}" id="ilbtn-${l.id}" onclick="setIssueLoc('${l.id}')">
             <div class="lic ${l.cls}">${locIcon(l.id)}</div>
             <div><div class="lname">${l.name}</div><div class="lsub">${l.sub}</div></div>
         </button>`).join('');
-    document.getElementById('i-desc').value = '';
-    setIssuePriority('normal');
+    document.getElementById('i-desc').value = issue ? issue.description : '';
+    setIssuePriority(issueFormPriority);
+    document.getElementById('iov-title').textContent  = issue ? 'Edit Issue'    : 'Report an Issue';
+    document.getElementById('iov-submit').textContent = issue ? 'Save Changes'  : 'Submit Report';
     document.getElementById('iov').classList.add('on');
 }
-function closeIssueForm() { document.getElementById('iov').classList.remove('on'); }
+function closeIssueForm() { document.getElementById('iov').classList.remove('on'); editingIssueId = null; }
 function closeIssueFormIfBg(e) { if (e.target === document.getElementById('iov')) closeIssueForm(); }
 
 function setIssueLoc(loc) {
@@ -1760,38 +1741,44 @@ async function submitIssueForm() {
     if (!issueFormLoc) { toast('Select a location', 'e'); return; }
     const desc = document.getElementById('i-desc').value.trim();
     if (!desc) { toast('Please describe the issue', 'e'); return; }
-
-    const issue = {
-        id:          Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-        location:    issueFormLoc,
-        description: desc,
-        priority:    issueFormPriority,
-        created_at:  new Date().toISOString(),
-        resolved:    false,
-        notified:    false,
-    };
-
     const issues = getIssues();
-    issues.unshift(issue);
-    saveIssues(issues);
 
-    if (sbClient) {
-        sbClient.from('maintenance_issues').insert(issue).then(({ error }) => {
-            if (error) console.warn('Issue Supabase insert failed:', error.message);
-        });
+    if (editingIssueId) {
+        const idx = issues.findIndex(i => i.id === editingIssueId);
+        if (idx === -1) return;
+        issues[idx].location    = issueFormLoc;
+        issues[idx].description = desc;
+        issues[idx].priority    = issueFormPriority;
+        saveIssues(issues);
+        if (sbClient) sbClient.from('maintenance_issues').upsert(issues[idx]).then(({ error }) => { if (error) console.warn('Issue update failed:', error.message); });
+        closeIssueForm();
+        if (currentTab === 'tasks') renderTasks();
+        if (currentTab === 'home')  renderHome();
+        toast('Issue updated!', 'g');
+    } else {
+        const issue = {
+            id:          Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            location:    issueFormLoc,
+            description: desc,
+            priority:    issueFormPriority,
+            created_at:  new Date().toISOString(),
+            resolved:    false,
+            notified:    false,
+        };
+        issues.unshift(issue);
+        saveIssues(issues);
+        if (sbClient) sbClient.from('maintenance_issues').insert(issue).then(({ error }) => { if (error) console.warn('Issue insert failed:', error.message); });
+        const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
+        const locName = locMap[issue.location] || issue.location;
+        const urgent  = issue.priority === 'urgent';
+        const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue — ${locName}`;
+        const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
+        const sent = await dispatchEmailSilent(subject, body);
+        closeIssueForm();
+        if (currentTab === 'tasks') renderTasks();
+        if (currentTab === 'home')  renderHome();
+        toast(sent ? 'Issue reported — owners notified' : 'Issue saved — owners notified tonight', 'g');
     }
-
-    const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
-    const locName = locMap[issue.location] || issue.location;
-    const urgent  = issue.priority === 'urgent';
-    const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue — ${locName}`;
-    const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
-
-    const sent = await dispatchEmailSilent(subject, body);
-    closeIssueForm();
-    if (currentTab === 'tasks') renderTasks();
-    if (currentTab === 'home')  renderHome();
-    toast(sent ? 'Issue reported — owners notified' : 'Issue saved — owners notified tonight', 'g');
 }
 
 async function dispatchEmailSilent(subject, body) {
@@ -1842,9 +1829,14 @@ function issueItemHTML(issue) {
             <div class="issue-desc">${escHtml(issue.description)}</div>
             <div class="issue-meta">${date}</div>
         </div>
-        <button class="rbtn" onclick="resolveIssue('${issue.id}')" title="Mark resolved">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-        </button>
+        <div style="display:flex;align-items:center;gap:4px">
+            <button class="rbtn" style="background:#f0f7fc;color:var(--ocean)" onclick="openIssueForm('${issue.id}')" title="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+            </button>
+            <button class="rbtn" onclick="resolveIssue('${issue.id}')" title="Mark resolved">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+            </button>
+        </div>
     </div>`;
 }
 
@@ -1860,6 +1852,7 @@ function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(task
 let taskFormPriority = 'normal';
 let taskFormAddedBy  = 'Angus';
 let completingTaskId = null;
+let editingTaskId    = null;
 
 function renderTasks() {
     const tasks     = getTasks();
@@ -1905,6 +1898,8 @@ function taskItemHTML(task) {
     const today    = todayStr();
     const overdue  = task.due_date && task.due_date < today && !isDone;
     const dueLabel = task.due_date ? `<div class="task-due ${overdue ? 'overdue' : 'ok'}">${overdue ? 'Overdue: ' : 'Due: '}${fmt(strToDate(task.due_date))}</div>` : '';
+    const pencilSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>`;
+    const editBtn  = isDone ? '' : `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean);margin-right:4px" onclick="openAddTaskForm('${task.id}')" title="Edit">${pencilSvg}</button>`;
     const doneBtn  = isDone ? '' : `<button class="rbtn" onclick="openCompleteTask('${task.id}')" title="Mark done">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
     </button>`;
@@ -1921,27 +1916,31 @@ function taskItemHTML(task) {
             ${completionLine}
             <div class="task-meta">Added by ${escHtml(task.added_by)} · ${fmt(strToDate(task.created_at.slice(0,10)))}</div>
         </div>
-        ${doneBtn}
+        <div style="display:flex;align-items:center">${editBtn}${doneBtn}</div>
     </div>`;
 }
 
-function openAddTaskForm() {
-    taskFormPriority = 'normal';
-    taskFormAddedBy  = 'Angus';
-    document.getElementById('t-title').value = '';
-    document.getElementById('t-desc').value  = '';
-    document.getElementById('t-due').value   = '';
+function openAddTaskForm(id = null) {
+    editingTaskId = id;
+    const task = id ? getTasks().find(t => t.id === id) : null;
+    taskFormPriority = task ? task.priority : 'normal';
+    taskFormAddedBy  = task ? task.added_by : 'Angus';
+    document.getElementById('t-title').value = task ? task.title          : '';
+    document.getElementById('t-desc').value  = task ? (task.description||'') : '';
+    document.getElementById('t-due').value   = task ? (task.due_date||'')    : '';
     ['Angus','Jenna'].forEach(w => {
         const b = document.getElementById(`tab-${w}`);
-        if (b) b.classList.toggle('sel', w === 'Angus');
+        if (b) b.classList.toggle('sel', w === taskFormAddedBy);
     });
     ['low','normal','urgent'].forEach(p => {
         const b = document.getElementById(`tpb-${p}`);
-        if (b) { b.classList.remove('sel','urgent'); if (p === 'normal') b.classList.add('sel'); }
+        if (b) { b.classList.remove('sel','urgent'); if (p === taskFormPriority) { b.classList.add('sel'); if (p==='urgent') b.classList.add('urgent'); } }
     });
+    document.getElementById('tov-title').textContent  = task ? 'Edit Task'    : 'Add Task';
+    document.getElementById('tov-submit').textContent = task ? 'Save Changes' : 'Add Task';
     document.getElementById('tov').classList.add('on');
 }
-function closeAddTaskForm() { document.getElementById('tov').classList.remove('on'); }
+function closeAddTaskForm() { document.getElementById('tov').classList.remove('on'); editingTaskId = null; }
 function closeAddTaskFormIfBg(e) { if (e.target === document.getElementById('tov')) closeAddTaskForm(); }
 
 function setTaskPriority(p) {
@@ -1968,31 +1967,43 @@ function setTaskAddedBy(who) {
 async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
-    const task = {
-        id:               Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-        title,
-        description:      document.getElementById('t-desc').value.trim(),
-        priority:         taskFormPriority,
-        due_date:         document.getElementById('t-due').value || null,
-        added_by:         taskFormAddedBy,
-        status:           'open',
-        completion_note:  '',
-        completed_at:     null,
-        created_at:       new Date().toISOString(),
-        notified_cleaner: false,
-        notified_owners:  false,
-    };
     const tasks = getTasks();
-    tasks.unshift(task);
-    saveTasks(tasks);
-    if (sbClient) {
-        sbClient.from('tasks').insert(task).then(({ error }) => {
-            if (error) console.warn('Task insert failed:', error.message);
-        });
+
+    if (editingTaskId) {
+        const idx = tasks.findIndex(t => t.id === editingTaskId);
+        if (idx === -1) return;
+        tasks[idx].title       = title;
+        tasks[idx].description = document.getElementById('t-desc').value.trim();
+        tasks[idx].priority    = taskFormPriority;
+        tasks[idx].due_date    = document.getElementById('t-due').value || null;
+        tasks[idx].added_by    = taskFormAddedBy;
+        saveTasks(tasks);
+        if (sbClient) sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => { if (error) console.warn('Task update failed:', error.message); });
+        closeAddTaskForm();
+        renderTasks();
+        toast('Task updated!', 'g');
+    } else {
+        const task = {
+            id:               Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+            title,
+            description:      document.getElementById('t-desc').value.trim(),
+            priority:         taskFormPriority,
+            due_date:         document.getElementById('t-due').value || null,
+            added_by:         taskFormAddedBy,
+            status:           'open',
+            completion_note:  '',
+            completed_at:     null,
+            created_at:       new Date().toISOString(),
+            notified_cleaner: false,
+            notified_owners:  false,
+        };
+        tasks.unshift(task);
+        saveTasks(tasks);
+        if (sbClient) sbClient.from('tasks').insert(task).then(({ error }) => { if (error) console.warn('Task insert failed:', error.message); });
+        closeAddTaskForm();
+        renderTasks();
+        toast('Task added!', 'g');
     }
-    closeAddTaskForm();
-    renderTasks();
-    toast('Task added!', 'g');
 }
 
 function openCompleteTask(id) {
