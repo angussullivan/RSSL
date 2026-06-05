@@ -37,7 +37,7 @@ const sydneyMidnightUTC = new Date(Date.now() - secsSinceMidnight * 1000);
 
 function buildEventBody(block) {
     return {
-        summary: 'House Clean',
+        summary: 'SYSTEM GEN: House clean /app',
         description: block.notes || '',
         start: { dateTime: `${block.date}T${block.start_time}:00`, timeZone: 'Australia/Sydney' },
         end:   { dateTime: `${block.date}T${block.end_time}:00`,   timeZone: 'Australia/Sydney' },
