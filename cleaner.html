@@ -343,7 +343,7 @@
         </button>
         <button class="nt" id="nav-airbnb" onclick="showTab('airbnb')" aria-label="ABNB Week">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12V9.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM12 12.75h.008v.008H12v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM12 15.75h.008v.008H12v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
-            <span>ABNB</span>
+            <span>Plan</span>
         </button>
         <button class="nt" id="nav-tasks" onclick="showTab('tasks')" aria-label="Tasks">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
@@ -717,7 +717,11 @@ async function syncFromSupabase() {
                 .gte('date', todayStr());
             if (remoteBlocks) {
                 const localBlocks = getCleaningBlocks();
-                remoteBlocks.forEach(b => { localBlocks[b.date] = b; });
+                remoteBlocks.forEach(b => {
+                    const ds = typeof b.date === 'string' ? b.date : b.date;
+                    if (!localBlocks[ds]) localBlocks[ds] = [];
+                    if (!localBlocks[ds].find(x => x.id === b.id)) localBlocks[ds].push(b);
+                });
                 saveCleaningBlocks(localBlocks);
                 if (pinUnlocked && currentTab === 'airbnb') renderAirbnb();
             }
@@ -1240,25 +1244,38 @@ function fmtTime(t) {
 }
 
 function getCleaningBlocks() {
-    try { return JSON.parse(localStorage.getItem('ch_clean') || '{}'); }
+    try {
+        const raw = JSON.parse(localStorage.getItem('ch_clean') || '{}');
+        // Migrate: old format stored a single object per date; new format stores an array
+        const out = {};
+        Object.entries(raw).forEach(([date, val]) => {
+            out[date] = Array.isArray(val) ? val : [val];
+        });
+        return out;
+    }
     catch { return {}; }
 }
 function saveCleaningBlocks(b) { localStorage.setItem('ch_clean', JSON.stringify(b)); }
 
 let cleaningFormDate = null;
+let editingCleaningId = null;
 
-function openCleaningForm(date) {
+function openCleaningForm(date, id = null) {
     cleaningFormDate = date;
-    const blocks = getCleaningBlocks();
-    const b = blocks[date];
-    document.getElementById('cbov-title').textContent = b ? fmtAirbnbDate(date) : `Add cleaning — ${fmtAirbnbDate(date)}`;
+    editingCleaningId = id;
+    let b = null;
+    if (id) {
+        const blocks = getCleaningBlocks();
+        b = (blocks[date] || []).find(x => x.id === id) || null;
+    }
+    document.getElementById('cbov-title').textContent = b ? `Edit — ${fmtAirbnbDate(date)}` : `Add cleaning — ${fmtAirbnbDate(date)}`;
     document.getElementById('cb-start').value = b ? b.start_time : '11:00';
     document.getElementById('cb-end').value   = b ? b.end_time   : '14:00';
     document.getElementById('cb-notes').value = b ? (b.notes||'') : '';
     document.getElementById('cbov-delete').style.display = b ? '' : 'none';
     document.getElementById('cbov').classList.add('on');
 }
-function closeCleaningForm() { document.getElementById('cbov').classList.remove('on'); cleaningFormDate = null; }
+function closeCleaningForm() { document.getElementById('cbov').classList.remove('on'); cleaningFormDate = null; editingCleaningId = null; }
 function closeCleaningFormIfBg(e) { if (e.target === document.getElementById('cbov')) closeCleaningForm(); }
 
 function saveCleaningBlock() {
@@ -1267,20 +1284,31 @@ function saveCleaningBlock() {
     const end   = document.getElementById('cb-end').value   || '14:00';
     const notes = document.getElementById('cb-notes').value.trim();
     const blocks = getCleaningBlocks();
-    blocks[cleaningFormDate] = { id: cleaningFormDate, date: cleaningFormDate, start_time: start, end_time: end, notes };
+    if (!blocks[cleaningFormDate]) blocks[cleaningFormDate] = [];
+    if (editingCleaningId) {
+        const idx = blocks[cleaningFormDate].findIndex(x => x.id === editingCleaningId);
+        if (idx !== -1) {
+            blocks[cleaningFormDate][idx] = { ...blocks[cleaningFormDate][idx], start_time: start, end_time: end, notes };
+            if (sbClient) sbClient.from('cleaning_blocks').upsert(blocks[cleaningFormDate][idx]).then(({ error }) => { if (error) console.warn('Cleaning block update failed:', error.message); });
+        }
+    } else {
+        const newBlock = { id: `${cleaningFormDate}-${Date.now().toString(36)}`, date: cleaningFormDate, start_time: start, end_time: end, notes };
+        blocks[cleaningFormDate].push(newBlock);
+        if (sbClient) sbClient.from('cleaning_blocks').insert(newBlock).then(({ error }) => { if (error) console.warn('Cleaning block insert failed:', error.message); });
+    }
     saveCleaningBlocks(blocks);
-    if (sbClient) sbClient.from('cleaning_blocks').upsert(blocks[cleaningFormDate]).then(({ error }) => { if (error) console.warn('Cleaning block save failed:', error.message); });
     closeCleaningForm();
     renderAirbnb();
     toast('Cleaning block saved', 'g');
 }
 
 function deleteCleaningBlock() {
-    if (!cleaningFormDate) return;
+    if (!cleaningFormDate || !editingCleaningId) return;
     const blocks = getCleaningBlocks();
-    delete blocks[cleaningFormDate];
+    blocks[cleaningFormDate] = (blocks[cleaningFormDate] || []).filter(x => x.id !== editingCleaningId);
+    if (blocks[cleaningFormDate].length === 0) delete blocks[cleaningFormDate];
     saveCleaningBlocks(blocks);
-    if (sbClient) sbClient.from('cleaning_blocks').delete().eq('id', cleaningFormDate).then(({ error }) => { if (error) console.warn('Cleaning block delete failed:', error.message); });
+    if (sbClient) sbClient.from('cleaning_blocks').delete().eq('id', editingCleaningId).then(({ error }) => { if (error) console.warn('Cleaning block delete failed:', error.message); });
     closeCleaningForm();
     renderAirbnb();
     toast('Block removed', 'g');
@@ -1341,9 +1369,10 @@ async function renderAirbnb() {
         const activity = byDate[ds] || [];
         const hasCheckout = activity.some(a => a.type === 'checkout');
         if (hasCheckout && !blocks[ds]) {
-            blocks[ds] = { id: ds, date: ds, start_time: '11:00', end_time: '14:00', notes: '' };
+            const newBlock = { id: `${ds}-auto`, date: ds, start_time: '11:00', end_time: '14:00', notes: '' };
+            blocks[ds] = [newBlock];
             blocksDirty = true;
-            if (sbClient) sbClient.from('cleaning_blocks').upsert(blocks[ds]).then(({ error }) => { if (error) console.warn('Auto cleaning block failed:', error.message); });
+            if (sbClient) sbClient.from('cleaning_blocks').insert(newBlock).then(({ error }) => { if (error) console.warn('Auto cleaning block failed:', error.message); });
         }
     });
     if (blocksDirty) saveCleaningBlocks(blocks);
@@ -1370,19 +1399,21 @@ async function renderAirbnb() {
             </div>`)
         ].join('');
 
-        const cleanHTML = block
-            ? `<div style="background:#e8f4fa;border-radius:10px;padding:10px 12px;margin-top:${activity.length ? '10px' : '0'};display:flex;align-items:center;gap:8px">
+        const dayBlocks = blocks[ds] || [];
+        const blocksHTML = dayBlocks.map(b => `
+            <div style="background:#e8f4fa;border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:8px">
                 <span style="font-size:1rem">🧹</span>
                 <div style="flex:1;min-width:0">
-                    <span style="font-size:.88rem;font-weight:700;color:#1B4965">${fmtTime(block.start_time)} – ${fmtTime(block.end_time)}</span>
-                    ${block.notes ? `<div style="font-size:.72rem;color:#5D7285;margin-top:1px">${escHtml(block.notes)}</div>` : ''}
+                    <span style="font-size:.88rem;font-weight:700;color:#1B4965">${fmtTime(b.start_time)} – ${fmtTime(b.end_time)}</span>
+                    ${b.notes ? `<div style="font-size:.72rem;color:#5D7285;margin-top:1px">${escHtml(b.notes)}</div>` : ''}
                 </div>
-                <button class="rbtn" style="background:#d0eaf7;color:var(--ocean);flex-shrink:0" onclick="openCleaningForm('${ds}')" title="Edit">${pencilSvg}</button>
-              </div>`
-            : `<button class="btn2" style="margin-top:${activity.length ? '10px' : '0'};font-size:.8rem;padding:8px" onclick="openCleaningForm('${ds}')">+ Add cleaning</button>`;
+                <button class="rbtn" style="background:#d0eaf7;color:var(--ocean);flex-shrink:0" onclick="openCleaningForm('${ds}','${b.id}')" title="Edit">${pencilSvg}</button>
+            </div>`).join('');
+        const cleanHTML = `${blocksHTML}
+            <button class="btn2" style="margin-top:8px;font-size:.8rem;padding:8px" onclick="openCleaningForm('${ds}')">+ Add cleaning</button>`;
 
         html += `<div style="background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 8px rgba(0,0,0,0.07);${isToday ? 'border-left:3.5px solid var(--ocean)' : activity.length === 0 ? 'opacity:.7' : ''}">
-            <div style="font-weight:700;color:#1B4965;margin-bottom:${activity.length || block ? '10px' : '0'};font-size:0.92rem">${isToday ? 'Today — ' : ''}${fmtAirbnbDate(ds)}</div>
+            <div style="font-weight:700;color:#1B4965;margin-bottom:${activity.length ? '10px' : '0'};font-size:0.92rem">${isToday ? 'Today — ' : ''}${fmtAirbnbDate(ds)}</div>
             ${activityHTML}
             ${cleanHTML}
         </div>`;
