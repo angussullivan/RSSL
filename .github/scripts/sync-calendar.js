@@ -46,17 +46,20 @@ function buildEventBody(block) {
 }
 
 async function main() {
-    // 1. Fetch upcoming cleaning blocks — exclude auto-generated Airbnb checkout blocks
-    //    at the database level (id pattern '%-auto') so they never reach this script.
-    const { data: blocks, error: sbErr } = await supabase
+    // 1. Fetch upcoming cleaning blocks and exclude auto-generated Airbnb checkout blocks.
+    //    Auto-blocks come in two formats depending on when they were created:
+    //      - Old format: plain date "YYYY-MM-DD" (length === 10), no suffix
+    //      - New format: "YYYY-MM-DD-auto"
+    //    Manually-added blocks always have a random 8-char suffix, e.g. "YYYY-MM-DD-mq0b2kh0".
+    const { data: allBlocks, error: sbErr } = await supabase
         .from('cleaning_blocks')
         .select('*')
-        .gte('date', todayStr)
-        .not('id', 'like', '%-auto');
+        .gte('date', todayStr);
     if (sbErr) throw new Error(`Supabase fetch failed: ${sbErr.message}`);
 
-    const manual = blocks || [];
-    console.log(`${manual.length} manual cleaning block(s) in Supabase`);
+    const manual = (allBlocks || []).filter(b => b.id.length > 10 && !b.id.endsWith('-auto'));
+    console.log(`${(allBlocks || []).length} total block(s) in Supabase, ${manual.length} manual (excluding auto-generated)`);
+
 
     // 2. Fetch all future events from the calendar that this script manages
     //    (tagged via extendedProperties.private.cleaningBlockId)
@@ -97,11 +100,12 @@ async function main() {
     }
 
     // 4. Delete calendar events whose blocks have been removed from the app,
-    //    or that were wrongly created for auto-generated Airbnb blocks.
+    //    or that were wrongly created for auto-generated Airbnb blocks (both formats).
     for (const [blockId, event] of eventByBlockId) {
-        if (!blockIds.has(blockId) || blockId.endsWith('-auto')) {
+        const isAutoBlock = blockId.length <= 10 || blockId.endsWith('-auto');
+        if (!blockIds.has(blockId) || isAutoBlock) {
             await calendar.events.delete({ calendarId: CALENDAR_ID, eventId: event.id });
-            console.log(`  Deleted ${blockId.endsWith('-auto') ? 'Airbnb auto-block' : 'orphaned'} event for block ${blockId}`);
+            console.log(`  Deleted ${isAutoBlock ? 'auto-block' : 'orphaned'} event for block ${blockId}`);
         }
     }
 
