@@ -1090,6 +1090,24 @@
                     <img src="IMG_7186.jpeg" alt="Inside the laundry - machines and facilities" style="width:100%; border-radius:16px; object-fit:cover; aspect-ratio:4/3;">
                 </div>
 
+                <!-- Live camera feed -->
+                <div class="busy-times-box reveal" style="margin-top:32px">
+                    <h4>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="var(--accent)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
+                        Live View
+                        <span id="live-badge" style="display:none;margin-left:4px;background:#e74c3c;color:#fff;font-size:0.62rem;font-weight:700;letter-spacing:.8px;padding:2px 7px;border-radius:100px">● LIVE</span>
+                    </h4>
+                    <p style="font-size:0.9rem;color:var(--text-light);margin-bottom:14px">See what's happening in the laundry right now.</p>
+                    <div style="position:relative;border-radius:12px;overflow:hidden;background:#111;aspect-ratio:16/9">
+                        <video id="laundry-cam" muted autoplay playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>
+                        <div id="cam-offline" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;font-size:0.85rem;gap:8px">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#555" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" stroke="#e74c3c"/></svg>
+                            Camera offline
+                        </div>
+                    </div>
+                    <p style="font-size:0.72rem;color:#aaa;margin-top:8px;text-align:center">Live feed — refreshes automatically</p>
+                </div>
+
                 <!-- Busy times placeholder -->
                 <div class="busy-times-box reveal">
                     <h4>
@@ -1410,6 +1428,41 @@
         bubblesContainer.appendChild(bubble);
     }
 </script>
+
+<!-- Live camera — replace STREAM_URL once VPS is set up -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+    (function () {
+        // ▼ Replace this with your actual HLS stream URL once the VPS is running
+        const STREAM_URL = '';  // e.g. 'https://stream.reservoirlaundry.com.au/laundry/index.m3u8'
+
+        const video   = document.getElementById('laundry-cam');
+        const offline = document.getElementById('cam-offline');
+        const badge   = document.getElementById('live-badge');
+        if (!STREAM_URL) return; // no URL yet — show offline state
+
+        function startStream() {
+            if (Hls.isSupported()) {
+                const hls = new Hls({ lowLatencyMode: true });
+                hls.loadSource(STREAM_URL);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play(); });
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    if (data.fatal) { offline.style.display = 'flex'; badge.style.display = 'none'; setTimeout(startStream, 10000); }
+                });
+                video.addEventListener('playing', () => { offline.style.display = 'none'; badge.style.display = 'inline'; }, { once: false });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari native HLS
+                video.src = STREAM_URL;
+                video.addEventListener('playing', () => { offline.style.display = 'none'; badge.style.display = 'inline'; });
+                video.play().catch(() => {});
+            }
+        }
+
+        startStream();
+    })();
+</script>
+
 ```
 
 </body>
