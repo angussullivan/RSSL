@@ -112,4 +112,23 @@ async function main() {
     console.log('Calendar sync complete.');
 }
 
-main().catch(err => { console.error('Fatal:', err); process.exit(1); });
+async function mainWithRetry() {
+    for (let attempt = 1; attempt <= 4; attempt++) {
+        try {
+            await main();
+            return;
+        } catch (err) {
+            const retryable = err.code === 'ERR_STREAM_PREMATURE_CLOSE' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
+            if (retryable && attempt < 4) {
+                const delay = attempt * 3000;
+                console.warn(`Attempt ${attempt} failed (${err.code}) — retrying in ${delay/1000}s`);
+                await new Promise(r => setTimeout(r, delay));
+            } else {
+                console.error('Fatal:', err);
+                process.exit(1);
+            }
+        }
+    }
+}
+
+mainWithRetry();
