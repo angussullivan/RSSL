@@ -56,7 +56,7 @@ async function getAccessToken() {
     return data.access_token;
 }
 
-async function calFetch(token, path, method = 'GET', body = null) {
+async function calFetch(token, path, method = 'GET', body = null, attempt = 1) {
     const opts = {
         method,
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -65,7 +65,16 @@ async function calFetch(token, path, method = 'GET', body = null) {
     const res  = await fetch(`https://www.googleapis.com/calendar/v3${path}`, opts);
     if (res.status === 204) return null;
     const data = await res.json();
-    if (!res.ok) throw new Error(`Calendar API ${method} ${path}: ${data.error?.message || JSON.stringify(data)}`);
+    if (!res.ok) {
+        const msg = data.error?.message || JSON.stringify(data);
+        if (res.status >= 500 && attempt < 4) {
+            const delay = attempt * 3000;
+            console.warn(`Calendar API ${method} ${path} returned ${res.status} — retrying in ${delay/1000}s`);
+            await new Promise(r => setTimeout(r, delay));
+            return calFetch(token, path, method, body, attempt + 1);
+        }
+        throw new Error(`Calendar API ${method} ${path}: ${msg}`);
+    }
     return data;
 }
 
