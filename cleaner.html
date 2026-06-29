@@ -1186,8 +1186,9 @@ async function renderHomeAirbnb() {
     const dt         = new Date(y, m - 1, d);
     const dateLabel  = isToday ? 'Today' : `${DAY_NAMES[dt.getDay()]} ${d} ${MONTH_NAMES[m - 1].slice(0,3)}`;
 
-    const checkouts = data.filter(b => b.checkout === nextDate).sort((a,b) => a.room.localeCompare(b.room));
-    const checkins  = data.filter(b => b.checkin  === nextDate).sort((a,b) => a.room.localeCompare(b.room));
+    const seenHome = new Set();
+    const checkouts = data.filter(b => b.checkout === nextDate).sort((a,b) => a.room.localeCompare(b.room)).filter(b => { const k=`out-${b.room}`; return seenHome.has(k) ? false : seenHome.add(k); });
+    const checkins  = data.filter(b => b.checkin  === nextDate).sort((a,b) => a.room.localeCompare(b.room)).filter(b => { const k=`in-${b.room}`;  return seenHome.has(k) ? false : seenHome.add(k); });
 
     let rows = '';
     checkouts.forEach((b, i) => {
@@ -1374,8 +1375,9 @@ async function renderAirbnb() {
     days.forEach(ds => {
         const isToday  = ds === tStr;
         const activity = byDate[ds] || [];
-        const checkouts = activity.filter(a => a.type === 'checkout').sort((a,b) => a.room.localeCompare(b.room));
-        const checkins  = activity.filter(a => a.type === 'checkin').sort((a,b) => a.room.localeCompare(b.room));
+        const seen = new Set();
+        const checkouts = activity.filter(a => a.type === 'checkout').sort((a,b) => a.room.localeCompare(b.room)).filter(a => { const k=`out-${a.room}`; return seen.has(k) ? false : seen.add(k); });
+        const checkins  = activity.filter(a => a.type === 'checkin').sort((a,b) => a.room.localeCompare(b.room)).filter(a => { const k=`in-${a.room}`;  return seen.has(k) ? false : seen.add(k); });
         const block     = blocks[ds];
 
         // Checkout/checkin rows
