@@ -185,6 +185,15 @@ async function main() {
     }
     const newMap = new Map(allBookings.map(b => [b.id, b]));
 
+    // Log imminent events (checkin/checkout within 3 days) to help diagnose display issues
+    const threeDaysOut = new Date(sydneyNow); threeDaysOut.setDate(threeDaysOut.getDate() + 3);
+    const threeDaysStr = `${threeDaysOut.getFullYear()}-${String(threeDaysOut.getMonth()+1).padStart(2,'0')}-${String(threeDaysOut.getDate()).padStart(2,'0')}`;
+    const imminent = allBookings.filter(b => b.checkin <= threeDaysStr || b.checkout <= threeDaysStr);
+    if (imminent.length > 0) {
+        console.log('Imminent events (next 3 days):');
+        imminent.forEach(b => console.log(`  [${b.room}] checkin=${b.checkin} checkout=${b.checkout} summary="${b.summary?.slice(0,50)}"`));
+    }
+
     // Detect changes for bookings with check-in within 24h (today or tomorrow)
     const changes = [];
     for (const [id, b] of newMap) {
@@ -224,13 +233,25 @@ async function main() {
         console.log('No changes to imminent bookings');
     }
 
-    // Remove stale past bookings and upsert fresh data
+    // Remove stale past bookings
     const { error: delErr } = await supabase
         .from('airbnb_bookings')
         .delete()
         .lt('checkout', todayStr);
     if (delErr) console.warn('Delete old:', delErr.message);
 
+    // Remove cancelled/stale future bookings (in Supabase but no longer in iCal)
+    const staleIds = [...existingMap.keys()].filter(id => !newMap.has(id));
+    if (staleIds.length > 0) {
+        const { error: staleErr } = await supabase
+            .from('airbnb_bookings')
+            .delete()
+            .in('id', staleIds);
+        if (staleErr) console.warn('Delete stale:', staleErr.message);
+        else console.log(`Deleted ${staleIds.length} stale/cancelled booking(s):`, staleIds);
+    }
+
+    // Upsert fresh data
     if (allBookings.length > 0) {
         const { error } = await supabase
             .from('airbnb_bookings')
