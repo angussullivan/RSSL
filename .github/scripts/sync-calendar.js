@@ -67,8 +67,8 @@ async function calFetch(token, path, method = 'GET', body = null, attempt = 1) {
     const data = await res.json();
     if (!res.ok) {
         const msg = data.error?.message || JSON.stringify(data);
-        if (res.status >= 500 && attempt < 4) {
-            const delay = attempt * 3000;
+        if ((res.status >= 500 || res.status === 429) && attempt < 4) {
+            const delay = res.status === 429 ? 10000 : attempt * 3000;
             console.warn(`Calendar API ${method} ${path} returned ${res.status} — retrying in ${delay/1000}s`);
             await new Promise(r => setTimeout(r, delay));
             return calFetch(token, path, method, body, attempt + 1);
