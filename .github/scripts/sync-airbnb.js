@@ -1,5 +1,7 @@
 // Fetches Airbnb iCal feeds for all 3 rooms and upserts upcoming bookings into Supabase.
-// If any booking with a check-in within the next 24h has changed, sends an alert email.
+// "Airbnb (Not available)" system/owner blocks are filtered out — only actual guest
+// reservations (summary != "not available") are stored and shown in the app.
+// If any reservation with a check-in within the next 24h has changed, sends an alert email.
 
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
@@ -75,9 +77,11 @@ function fmtDate(dateStr) {
 }
 
 function parseIcal(text) {
+    // Unfold RFC 5545 line continuations (line ending + whitespace = one logical line)
+    const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\r[ \t]/g, '').replace(/\n[ \t]/g, '');
     const events = [];
-    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-    let current = null;
+    const lines  = unfolded.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    let current  = null;
     for (const raw of lines) {
         const line = raw.trimEnd();
         if (line === 'BEGIN:VEVENT') { current = {}; continue; }
@@ -125,7 +129,7 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
         </div>`;
     }).join('');
 
-    const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
   <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
     <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">⚠️ Airbnb Calendar Change — Imminent Check-in</h2>
@@ -145,47 +149,71 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
     Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
   </div>
 </div></body></html>`;
-
-    return html;
 }
 
 async function main() {
-    const sydneyNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
-    const todayStr   = `${sydneyNow.getFullYear()}-${String(sydneyNow.getMonth()+1).padStart(2,'0')}-${String(sydneyNow.getDate()).padStart(2,'0')}`;
-    const tomorrow   = new Date(sydneyNow); tomorrow.setDate(tomorrow.getDate() + 1);
+    const sydneyNow   = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+    const todayStr    = `${sydneyNow.getFullYear()}-${String(sydneyNow.getMonth()+1).padStart(2,'0')}-${String(sydneyNow.getDate()).padStart(2,'0')}`;
+    const tomorrow    = new Date(sydneyNow); tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
 
-    // Fetch existing bookings from Supabase for change detection
+    // Fetch existing bookings from Supabase for change detection and stale cleanup
     const { data: existing } = await supabase
         .from('airbnb_bookings')
         .select('*')
         .gte('checkout', todayStr);
     const existingMap = new Map((existing || []).map(b => [b.id, b]));
 
-    // Fetch fresh iCal data
-    const allBookings = [];
+    // Fetch fresh iCal data with per-room isolation — one failure won't abort the others
+    const allBookings    = [];
+    const successfulRooms = new Set();
     for (const room of ROOMS) {
-        console.log(`Fetching ${room.name}...`);
-        const res = await fetch(room.url);
-        if (!res.ok) throw new Error(`HTTP ${res.status} for ${room.name}`);
-        const text = await res.text();
-        const events = parseIcal(text);
-        const upcoming = events.filter(e => e.checkout >= todayStr);
-        console.log(`  ${upcoming.length} upcoming events`);
-        for (const e of upcoming) {
-            allBookings.push({
-                id:         `${room.name.replaceAll(' ','').toLowerCase()}-${e.uid}`,
-                room:       room.name,
-                checkin:    e.checkin,
-                checkout:   e.checkout,
-                summary:    e.summary,
-                fetched_at: new Date().toISOString(),
-            });
+        try {
+            console.log(`Fetching ${room.name}...`);
+            const controller = new AbortController();
+            const fetchTimer = setTimeout(() => controller.abort(), 15000);
+            let res;
+            try {
+                res = await fetch(room.url, { signal: controller.signal });
+            } finally {
+                clearTimeout(fetchTimer);
+            }
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const text   = await res.text();
+            const events = parseIcal(text);
+            // Filter out "Airbnb (Not available)" system/owner blocks — only store actual reservations
+            const upcoming = events.filter(e =>
+                e.checkout >= todayStr && !/not available/i.test(e.summary)
+            );
+            const filtered = events.filter(e => e.checkout >= todayStr).length - upcoming.length;
+            console.log(`  ${upcoming.length} reservation(s)${filtered ? ` (${filtered} system block(s) filtered)` : ''}`);
+            for (const e of upcoming) {
+                allBookings.push({
+                    id:         `${room.name.replaceAll(' ','').toLowerCase()}-${e.uid}`,
+                    room:       room.name,
+                    checkin:    e.checkin,
+                    checkout:   e.checkout,
+                    summary:    e.summary,
+                    fetched_at: new Date().toISOString(),
+                });
+            }
+            successfulRooms.add(room.name);
+        } catch (err) {
+            console.error(`  FAILED ${room.name}: ${err.message}`);
         }
     }
+
+    if (successfulRooms.size === 0) {
+        throw new Error('All room iCal fetches failed — aborting to preserve Supabase data');
+    }
+    if (successfulRooms.size < ROOMS.length) {
+        const failed = ROOMS.map(r => r.name).filter(n => !successfulRooms.has(n));
+        console.warn(`Partial fetch — skipping stale cleanup for failed rooms: ${failed.join(', ')}`);
+    }
+
     const newMap = new Map(allBookings.map(b => [b.id, b]));
 
-    // Log imminent events (checkin/checkout within 3 days) to help diagnose display issues
+    // Log imminent events (check-in or check-out within 3 days) for observability
     const threeDaysOut = new Date(sydneyNow); threeDaysOut.setDate(threeDaysOut.getDate() + 3);
     const threeDaysStr = `${threeDaysOut.getFullYear()}-${String(threeDaysOut.getMonth()+1).padStart(2,'0')}-${String(threeDaysOut.getDate()).padStart(2,'0')}`;
     const imminent = allBookings.filter(b => b.checkin <= threeDaysStr || b.checkout <= threeDaysStr);
@@ -194,7 +222,7 @@ async function main() {
         imminent.forEach(b => console.log(`  [${b.room}] checkin=${b.checkin} checkout=${b.checkout} summary="${b.summary?.slice(0,50)}"`));
     }
 
-    // Detect changes for bookings with check-in within 24h (today or tomorrow)
+    // Detect changes for reservations with check-in within 24h (today or tomorrow)
     const changes = [];
     for (const [id, b] of newMap) {
         if (b.checkin !== todayStr && b.checkin !== tomorrowStr) continue;
@@ -212,13 +240,14 @@ async function main() {
         }
     }
 
+    // Single transport reused for all emails this run
+    const transport = (GMAIL_USER && GMAIL_APP_PASSWORD)
+        ? nodemailer.createTransport({ host: 'smtp.gmail.com', port: 587, secure: false, auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD } })
+        : null;
+
     if (changes.length > 0) {
         console.log(`${changes.length} change(s) detected for imminent check-ins — sending alert`);
-        if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-            const transport = nodemailer.createTransport({
-                host: 'smtp.gmail.com', port: 587, secure: false,
-                auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-            });
+        if (transport) {
             await transport.sendMail({
                 from:    `"Hours Tracker" <${GMAIL_USER}>`,
                 to:      EVERYONE.join(', '),
@@ -233,22 +262,26 @@ async function main() {
         console.log('No changes to imminent bookings');
     }
 
-    // Remove stale past bookings
+    // Remove past bookings (checkout before today)
     const { error: delErr } = await supabase
         .from('airbnb_bookings')
         .delete()
         .lt('checkout', todayStr);
     if (delErr) console.warn('Delete old:', delErr.message);
 
-    // Remove cancelled/stale future bookings (in Supabase but no longer in iCal)
-    const staleIds = [...existingMap.keys()].filter(id => !newMap.has(id));
+    // Remove cancelled/stale future bookings — only for rooms that were successfully fetched,
+    // to avoid accidentally wiping valid data when a room's iCal was temporarily unreachable.
+    // Batched in groups of 100 to stay within Supabase .in() limits.
+    const staleIds = [...existingMap.values()]
+        .filter(b => successfulRooms.has(b.room) && !newMap.has(b.id))
+        .map(b => b.id);
     if (staleIds.length > 0) {
-        const { error: staleErr } = await supabase
-            .from('airbnb_bookings')
-            .delete()
-            .in('id', staleIds);
-        if (staleErr) console.warn('Delete stale:', staleErr.message);
-        else console.log(`Deleted ${staleIds.length} stale/cancelled booking(s):`, staleIds);
+        for (let i = 0; i < staleIds.length; i += 100) {
+            const chunk = staleIds.slice(i, i + 100);
+            const { error } = await supabase.from('airbnb_bookings').delete().in('id', chunk);
+            if (error) console.warn(`Delete stale (batch ${Math.floor(i/100)+1}):`, error.message);
+        }
+        console.log(`Deleted ${staleIds.length} stale/cancelled booking(s)`);
     }
 
     // Upsert fresh data
@@ -259,15 +292,10 @@ async function main() {
         if (error) throw new Error(`Upsert failed: ${error.message}`);
     }
 
-    console.log(`Done — ${allBookings.length} bookings synced`);
+    console.log(`Done — ${allBookings.length} booking(s) synced across ${successfulRooms.size}/${ROOMS.length} room(s)`);
 
-    // Check for unnotified maintenance issues and send alert email
-    if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-        const transport2 = nodemailer.createTransport({
-            host: 'smtp.gmail.com', port: 587, secure: false,
-            auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-        });
-
+    // Maintenance alert — also handled by send-emails.js at 9:30pm; this provides faster (2h) notification
+    if (transport) {
         const { data: newIssues } = await supabase
             .from('maintenance_issues')
             .select('*')
@@ -276,18 +304,19 @@ async function main() {
 
         if (newIssues && newIssues.length > 0) {
             console.log(`Sending maintenance alert for ${newIssues.length} unnotified issue(s)`);
-            await transport2.sendMail({
+            await transport.sendMail({
                 from:    `"Hours Tracker" <${GMAIL_USER}>`,
                 to:      EVERYONE.join(', '),
                 subject: `Maintenance Issue${newIssues.length > 1 ? 's' : ''} Reported — ${newIssues.length} item${newIssues.length > 1 ? 's' : ''}`,
                 html:    buildMaintenanceAlertEmail(newIssues),
             });
-            await supabase.from('maintenance_issues')
+            const { error: notifyErr } = await supabase
+                .from('maintenance_issues')
                 .update({ notified: true })
                 .in('id', newIssues.map(i => i.id));
-            console.log('  Maintenance alert sent and issues marked notified');
+            if (notifyErr) console.warn('Failed to mark issues notified:', notifyErr.message);
+            else console.log('  Maintenance alert sent and issues marked notified');
         }
-
     }
 }
 
