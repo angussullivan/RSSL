@@ -20,7 +20,7 @@ const transport = nodemailer.createTransport({
 // ── CONFIG ──────────────────────────────────────────────────
 const ANGELICA  = 'angelicasuesscun@icloud.com';
 const OWNERS    = ['angussullivan@gmail.com', 'jenna4134@gmail.com'];
-const EVERYONE  = ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'];
+const EVERYONE  = ['angussullivan@gmail.com', 'jenna4134@gmail.com'];
 const WEEKLY_TARGET = 35;
 const LOCS = {
     airbnb:   'Reservoir St Airbnb Rooms',
