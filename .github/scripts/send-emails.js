@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
 
 // ── ENV VALIDATION ──────────────────────────────────────────
-const { SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, CRON_SCHEDULE, MANUAL_TYPE } = process.env;
+const { SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD, MANUAL_TYPE } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !GMAIL_USER || !GMAIL_APP_PASSWORD) {
     console.error('Missing required environment variables (SUPABASE_URL, SUPABASE_SERVICE_KEY, GMAIL_USER, GMAIL_APP_PASSWORD)');
     process.exit(1);
@@ -20,7 +20,7 @@ const transport = nodemailer.createTransport({
 // ── CONFIG ──────────────────────────────────────────────────
 const ANGELICA  = 'angelicasuesscun@icloud.com';
 const OWNERS    = ['angussullivan@gmail.com', 'jenna4134@gmail.com'];
-const EVERYONE  = ['angussullivan@gmail.com', 'jenna4134@gmail.com', 'angelicasuesscun@icloud.com'];
+const EVERYONE  = ['angussullivan@gmail.com', 'jenna4134@gmail.com'];
 const WEEKLY_TARGET = 35;
 const LOCS = {
     airbnb:   'Reservoir St Airbnb Rooms',
@@ -252,7 +252,7 @@ function buildMonthlySummary(entries, year, month) {
     let locRows = '';
     Object.entries(LOCS).forEach(([id, name]) => {
         const h = entries.filter(e => e.location === id).reduce((a, e) => a + parseFloat(e.hours), 0);
-        locRows += `<tr>
+        if (h > 0) locRows += `<tr>
             <td style="padding:6px 0;border-bottom:1px solid #f5f5f5;color:#5D7285;font-size:0.85rem">${name}</td>
             <td style="padding:6px 0;border-bottom:1px solid #f5f5f5;text-align:right;color:#5D7285;font-size:0.85rem">${fh(h)}h</td>
         </tr>`;
@@ -327,11 +327,12 @@ function buildMaintenanceAlert(issues) {
 // ── MAIN ─────────────────────────────────────────────────────
 async function main() {
     // ── Always: check for unnotified maintenance issues ──────
-    const { data: newIssues } = await supabase
+    const { data: newIssues, error: issueErr } = await supabase
         .from('maintenance_issues')
         .select('*')
         .eq('notified', false)
         .eq('resolved', false);
+    if (issueErr) console.error('Failed to fetch maintenance issues:', issueErr.message);
 
     if (newIssues && newIssues.length > 0) {
         console.log(`Sending maintenance alert for ${newIssues.length} unnotified issue(s)`);
@@ -340,9 +341,10 @@ async function main() {
             subject: `Maintenance Issue${newIssues.length > 1 ? 's' : ''} Reported — ${newIssues.length} item${newIssues.length > 1 ? 's' : ''}`,
             html: buildMaintenanceAlert(newIssues),
         });
-        await supabase.from('maintenance_issues')
+        const { error: notifyErr } = await supabase.from('maintenance_issues')
             .update({ notified: true })
             .in('id', newIssues.map(i => i.id));
+        if (notifyErr) console.error('Failed to mark issues notified:', notifyErr.message);
     }
 
     // ── 9pm: reminder if no entries today ───────────────────
@@ -379,18 +381,21 @@ async function main() {
         const secsSinceSydneyMidnight =
             sydneyNow.getHours() * 3600 + sydneyNow.getMinutes() * 60 + sydneyNow.getSeconds();
         const sydneyMidnightUTC = new Date(Date.now() - secsSinceSydneyMidnight * 1000).toISOString();
-        const { data: completedTasksToday } = await supabase
+        const { data: completedTasksToday, error: taskErr } = await supabase
             .from('tasks')
             .select('*')
             .eq('status', 'completed')
             .gte('completed_at', sydneyMidnightUTC);
+        if (taskErr) console.error('Failed to fetch completed tasks:', taskErr.message);
 
-        console.log(`Sending daily summary (${todayEntries.length} entries, ${(completedTasksToday||[]).length} tasks completed today)`);
-        await send({
-            to: EVERYONE,
-            subject: `Daily hours summary — ${fmtDateFull(todayStr)}`,
-            html: buildDailySummary(todayEntries, completedTasksToday || []),
-        });
+        if (!MANUAL_TYPE || MANUAL_TYPE === 'daily') {
+            console.log(`Sending daily summary (${todayEntries.length} entries, ${(completedTasksToday||[]).length} tasks completed today)`);
+            await send({
+                to: EVERYONE,
+                subject: `Daily hours summary — ${fmtDateFull(todayStr)}`,
+                html: buildDailySummary(todayEntries, completedTasksToday || []),
+            });
+        }
 
         // ── Sunday: weekly summary ───────────────────────────
         if (isSunday || MANUAL_TYPE === 'weekly') {
@@ -413,11 +418,14 @@ async function main() {
         if (isLastDayOfMonth || MANUAL_TYPE === 'monthly') {
             const y = sydneyNow.getFullYear();
             const m = sydneyNow.getMonth();
-            const prefix = `${y}-${String(m + 1).padStart(2, '0')}-`;
+            const mDaysCount = daysInMonth(y, m);
+            const firstOfMonth = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+            const lastOfMonth  = `${y}-${String(m + 1).padStart(2, '0')}-${String(mDaysCount).padStart(2, '0')}`;
             const { data: monthEntries, error: e3 } = await supabase
                 .from('hours_entries')
                 .select('*')
-                .like('date', `${prefix}%`);
+                .gte('date', firstOfMonth)
+                .lte('date', lastOfMonth);
             if (e3) throw e3;
 
             console.log(`Sending monthly summary (${monthEntries.length} entries)`);
