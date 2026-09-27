@@ -55,12 +55,12 @@ function buildMaintenanceAlertEmail(issues) {
     <p style="color:#2C3E50;margin-bottom:16px">The following maintenance issue${issues.length > 1 ? 's have' : ' has'} been flagged:</p>
     <table style="width:100%;border-collapse:collapse">${rows}</table>
     <p style="text-align:center;margin-top:20px">
-      <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+      <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
          style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
     </p>
   </div>
   <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
+    Sent automatically by Hours Tracker · <a href="https://angussullivan.github.io/cleaner-app/cleaner.html" style="color:#62B6CB">Open app</a>
   </div>
 </div></body></html>`;
 }
@@ -139,14 +139,14 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
     <p style="color:#5D7285;margin-top:0">A booking has changed for a guest arriving within the next 24 hours:</p>
     ${rows}
     <p style="margin-top:16px;text-align:center">
-        <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+        <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
            style="display:inline-block;background:#1B4965;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.9rem">
            View Schedule →
         </a>
     </p>
   </div>
   <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
+    Sent automatically by Hours Tracker · <a href="https://angussullivan.github.io/cleaner-app/cleaner.html" style="color:#62B6CB">Open app</a>
   </div>
 </div></body></html>`;
 }

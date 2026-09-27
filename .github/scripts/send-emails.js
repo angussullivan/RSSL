@@ -73,6 +73,10 @@ function fmtTime(t) {
     return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2,'0')}${ampm}`;
 }
 
+function sortByStartTime(entries) {
+    return entries.slice().sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+}
+
 function fmtDate(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return `${d} ${MONTH_NAMES[m - 1].slice(0, 3)}`;
@@ -108,7 +112,7 @@ function wrap(title, body) {
   </div>
   <div style="padding:24px 28px">${body}</div>
   <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://www.reservoirlaundry.com.au/cleaner.html" style="color:#62B6CB">Open app</a>
+    Sent automatically by Hours Tracker · <a href="https://angussullivan.github.io/cleaner-app/cleaner.html" style="color:#62B6CB">Open app</a>
   </div>
 </div></body></html>`;
 }
@@ -134,7 +138,7 @@ function buildReminder() {
             <strong style="font-size:1.1rem;color:#1B4965">${fmtDateFull(todayStr)}</strong>
         </p>
         <p style="text-align:center;margin:20px 0">
-            <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+            <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
                style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">
                Log Hours Now →
             </a>
@@ -148,11 +152,11 @@ function buildDailySummary(entries, completedTasks = []) {
     const date  = fmtDateFull(todayStr);
 
     let tableRows = '';
-    entries.slice().sort((a, b) => (a.start_time || '').localeCompare(b.start_time || '')).forEach(e => {
-        const name = LOCS[e.location] || e.location;
+    sortByStartTime(entries).forEach(e => {
+        const name = escHtml(LOCS[e.location] || e.location);
         const timeLabel = (e.start_time && e.end_time) ? `${fmtTime(e.start_time)}–${fmtTime(e.end_time)}` : '';
         tableRows += `<tr>
-            <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;color:#2C3E50">
+            <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;color:#2C3E50;vertical-align:top">
                 <div>${name}</div>
                 ${timeLabel ? `<div style="font-size:0.75rem;color:#aaa;margin-top:2px">${timeLabel}</div>` : ''}
             </td>
@@ -196,12 +200,12 @@ function buildWeeklySummary(entries, weekDates) {
         const de    = entries.filter(e => e.date === ds);
         const dt    = de.reduce((a, e) => a + parseFloat(e.hours), 0);
         const color = dt > 0 ? '#2C3E50' : '#ccc';
-        const times = de.slice().sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+        const times = sortByStartTime(de)
             .filter(e => e.start_time && e.end_time)
             .map(e => `${fmtTime(e.start_time)}–${fmtTime(e.end_time)}`)
             .join(', ');
         dayRows += `<tr>
-            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;color:${color};font-size:0.9rem">
+            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;color:${color};font-size:0.9rem;vertical-align:top">
                 <div>${dayNames[i]}, ${fmtDate(ds)}</div>
                 ${times ? `<div style="font-size:0.72rem;color:#aaa;margin-top:1px">${times}</div>` : ''}
             </td>
@@ -333,7 +337,7 @@ function buildMaintenanceAlert(issues) {
         <p style="color:#2C3E50;margin-bottom:16px">The following maintenance issue${issues.length > 1 ? 's have' : ' has'} been flagged:</p>
         <table style="width:100%;border-collapse:collapse">${rows}</table>
         <p style="text-align:center;margin-top:20px">
-            <a href="https://www.reservoirlaundry.com.au/cleaner.html"
+            <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
                style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">
                Open App →
             </a>
