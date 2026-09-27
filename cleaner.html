@@ -130,12 +130,6 @@
         .it{background:linear-gradient(135deg,#62B6CB,#3a96ae)}
         .lname{font-size:.92rem;font-weight:600;color:var(--text)}
         .lsub{font-size:.77rem;color:var(--text-light)}
-        .hrs-row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:var(--r);padding:14px 18px;box-shadow:var(--sh);margin-bottom:12px}
-        .hrs-lbl{font-size:.85rem;font-weight:600;color:var(--text-light)}
-        .stepper{display:flex;align-items:center;gap:8px;margin-left:auto}
-        .sbtn{width:40px;height:40px;border-radius:12px;background:var(--clean);border:none;font-size:1.25rem;font-weight:700;color:var(--ocean);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-tap-highlight-color:transparent}
-        .sbtn:active{background:var(--accent);color:#fff;transform:scale(.88)}
-        #hrs-inp{width:72px;height:42px;text-align:center;font-size:1.5rem;font-weight:700;color:var(--ocean);border:none;background:transparent;font-family:inherit;outline:none}
         .notes-inp{width:100%;padding:12px 14px;border-radius:var(--r);border:2px solid transparent;background:#fff;font-family:inherit;font-size:.9rem;color:var(--text);box-shadow:var(--sh);resize:none;outline:none;margin-bottom:14px;transition:border-color .2s}
         .notes-inp:focus{border-color:var(--accent)}
         .notes-inp::placeholder{color:var(--text-light)}
@@ -260,6 +254,7 @@
         .task-badge.low{background:#f0f0f0;color:#666}
         .task-badge.normal{background:#e8f4fa;color:var(--ocean)}
         .task-badge.urgent{background:#fde8e8;color:var(--danger)}
+        .task-badge.loc{background:var(--foam);color:var(--ocean)}
         .done-toggle{font-size:.77rem;font-weight:700;color:var(--text-light);cursor:pointer;padding:8px 0;display:block;text-align:center}
 
         /* ── PRIORITY / ADDED-BY BUTTON GROUPS ── */
@@ -418,6 +413,10 @@
         <div class="ssec">
             <label class="slbl">Title <span style="color:var(--danger)">*</span></label>
             <input class="sinp" id="t-title" type="text" placeholder="What needs to be done?">
+        </div>
+        <div class="ssec">
+            <label class="slbl">Property <span style="color:var(--danger)">*</span></label>
+            <div class="pbtn-row" id="t-locs"></div>
         </div>
         <div class="ssec">
             <label class="slbl">Added by</label>
@@ -607,6 +606,14 @@ function fh(h) {
     if (h === 0) return '0';
     return h % 1 === 0 ? String(h) : h.toFixed(1);
 }
+function computeHours(start, end) {
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0) return 0;
+    return Math.round(mins / 6) / 10; // nearest 0.1h
+}
 
 // ============================================================
 // SUPABASE SYNC
@@ -763,10 +770,11 @@ async function syncFromSupabase() {
 // ============================================================
 // ENTRIES
 // ============================================================
-function addEntry(dateStr, location, hours, notes) {
+function addEntry(dateStr, location, hours, notes, startTime, endTime) {
     const entry = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-        date: dateStr, location, hours, notes: notes||''
+        date: dateStr, location, hours, notes: notes||'',
+        start_time: startTime || null, end_time: endTime || null,
     };
     const data = getData();
     data.entries.unshift(entry);
@@ -981,7 +989,8 @@ let monthOffset   = 0;
 let hoursView     = 'week';
 let logDate       = todayStr();
 let logLoc        = null;
-let logHours      = 4;
+let logStart      = '09:00';
+let logEnd        = '13:00';
 let pinBuf        = '';
 let confirmCb     = null;
 let pinUnlocked   = false;
@@ -1508,16 +1517,21 @@ function renderLog() {
             </div>
             <div style="font-size:.7rem;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:var(--text-light);margin-bottom:9px">Location</div>
             <div class="loc-grid">${locBtns}</div>
-            <div class="hrs-row">
-                <span class="hrs-lbl">Hours</span>
-                <div class="stepper">
-                    <button class="sbtn" onclick="adjustHrs(-0.5)">−</button>
-                    <input type="number" id="hrs-inp" value="${logHours}" min="0.5" max="16" step="0.5"
-                        style="width:72px;height:42px;text-align:center;font-size:1.5rem;font-weight:700;color:var(--ocean);border:none;background:transparent;font-family:inherit;outline:none"
-                        oninput="setHrsFromInput(this.value)" onchange="setHrsFromInput(this.value)">
-                    <button class="sbtn" onclick="adjustHrs(0.5)">+</button>
+            <div style="display:flex;gap:10px;margin-bottom:10px">
+                <div class="ddisp" style="position:relative;overflow:hidden">
+                    <div>${fmtTime(logStart)}</div>
+                    <small>Start</small>
+                    <input type="time" value="${logStart}" onchange="setLogStart(this.value)"
+                        style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;padding:0;margin:0">
+                </div>
+                <div class="ddisp" style="position:relative;overflow:hidden">
+                    <div>${fmtTime(logEnd)}</div>
+                    <small>Finish</small>
+                    <input type="time" value="${logEnd}" onchange="setLogEnd(this.value)"
+                        style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;border:none;padding:0;margin:0">
                 </div>
             </div>
+            <div style="text-align:center;font-size:.82rem;color:var(--text-light);margin-bottom:12px">Total: <strong style="color:var(--ocean)">${fh(computeHours(logStart,logEnd))}h</strong></div>
             <textarea class="notes-inp" id="log-notes" rows="2" placeholder="Notes (optional)"></textarea>
             <button class="btn1" id="add-btn" onclick="submitEntry()" ${!logLoc?'disabled':''}>Add Entry</button>
         </div>
@@ -1535,14 +1549,15 @@ function setLoc(id) {
     const btn = document.getElementById('add-btn');
     if (btn) btn.disabled = false;
 }
-function adjustHrs(delta) {
-    logHours = Math.max(0.5, Math.min(16, Math.round((logHours + delta) * 2) / 2));
-    const inp = document.getElementById('hrs-inp');
-    if (inp) inp.value = logHours;
+function setLogStart(v) {
+    if (!v) return;
+    logStart = v;
+    renderLog();
 }
-function setHrsFromInput(v) {
-    const n = parseFloat(v);
-    if (!isNaN(n) && n > 0) logHours = Math.round(n * 2) / 2;
+function setLogEnd(v) {
+    if (!v) return;
+    logEnd = v;
+    renderLog();
 }
 function shiftDate(dir) {
     const d = strToDate(logDate);
@@ -1557,11 +1572,11 @@ function setLogDateFromPicker(v) {
     renderLog();
 }
 function submitEntry() {
-    const hVal = parseFloat(document.getElementById('hrs-inp')?.value || logHours);
     if (!logLoc) { toast('Select a location first', 'e'); return; }
-    if (!hVal || hVal <= 0) { toast('Enter valid hours', 'e'); return; }
+    const hVal = computeHours(logStart, logEnd);
+    if (hVal <= 0) { toast('Finish time must be after start time', 'e'); return; }
     const notes = document.getElementById('log-notes')?.value?.trim() || '';
-    addEntry(logDate, logLoc, Math.round(hVal * 2) / 2, notes);
+    addEntry(logDate, logLoc, hVal, notes, logStart, logEnd);
     toast('Entry added!', 'g');
     logLoc = null;
     renderLog();
@@ -1851,11 +1866,12 @@ function locIcon(id) {
 
 function entryItemHTML(e, showDelete) {
     const loc = LOCS.find(l=>l.id===e.location);
+    const timeLabel = (e.start_time && e.end_time) ? ` · ${fmtTime(e.start_time)}–${fmtTime(e.end_time)}` : '';
     return `<div class="eitem">
         <div class="edot ${loc?.dot||''}"></div>
         <div class="einfo">
             <div class="eloc">${loc ? `${loc.sub} ${loc.name}` : escHtml(e.location)}</div>
-            <div class="edate">${fmt(strToDate(e.date))}${e.notes?' — '+escHtml(e.notes):''}</div>
+            <div class="edate">${fmt(strToDate(e.date))}${timeLabel}${e.notes?' — '+escHtml(e.notes):''}</div>
         </div>
         <div class="ehrs">${fh(e.hours)}h</div>
         ${showDelete?`<button class="xbtn" onclick="confirmDelete('${e.id}')">
@@ -2036,6 +2052,7 @@ function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(task
 
 let taskFormPriority = 'normal';
 let taskFormAddedBy  = 'Angus';
+let taskFormLoc      = null;
 let completingTaskId = null;
 let editingTaskId    = null;
 
@@ -2092,11 +2109,13 @@ function taskItemHTML(task) {
     const completionLine = isDone && task.completion_note
         ? `<div class="task-desc" style="font-style:italic">"${escHtml(task.completion_note)}"</div>`
         : '';
+    const loc      = LOCS.find(l => l.id === task.location);
+    const locBadge = loc ? `<span class="task-badge loc">${loc.name}</span>` : '';
     return `<div class="task-item ${isDone ? 'done' : ''}">
         <div class="task-dot ${task.priority}"></div>
         <div class="task-info">
             ${dueLabel}
-            <span class="task-badge ${task.priority}">${task.priority.charAt(0).toUpperCase()+task.priority.slice(1)}</span>
+            ${locBadge}<span class="task-badge ${task.priority}">${task.priority.charAt(0).toUpperCase()+task.priority.slice(1)}</span>
             <div class="task-title ${isDone ? 'done' : ''}">${escHtml(task.title)}</div>
             ${task.description ? `<div class="task-desc">${escHtml(task.description)}</div>` : ''}
             ${completionLine}
@@ -2111,6 +2130,9 @@ function openAddTaskForm(id = null) {
     const task = id ? getTasks().find(t => t.id === id) : null;
     taskFormPriority = task ? task.priority : 'normal';
     taskFormAddedBy  = task ? task.added_by : 'Angus';
+    taskFormLoc      = task ? task.location : null;
+    document.getElementById('t-locs').innerHTML = LOCS.map(l => `
+        <button class="pbtn${taskFormLoc===l.id?' sel':''}" id="tlb-${l.id}" onclick="setTaskLoc('${l.id}')">${l.name}</button>`).join('');
     document.getElementById('t-title').value = task ? task.title          : '';
     document.getElementById('t-desc').value  = task ? (task.description||'') : '';
     document.getElementById('t-due').value   = task ? (task.due_date||'')    : '';
@@ -2128,6 +2150,13 @@ function openAddTaskForm(id = null) {
 }
 function closeAddTaskForm() { document.getElementById('tov').classList.remove('on'); editingTaskId = null; }
 function closeAddTaskFormIfBg(e) { if (e.target === document.getElementById('tov')) closeAddTaskForm(); }
+
+function setTaskLoc(loc) {
+    taskFormLoc = loc;
+    LOCS.forEach(l => {
+        document.getElementById(`tlb-${l.id}`)?.classList.toggle('sel', l.id === loc);
+    });
+}
 
 function setTaskPriority(p) {
     taskFormPriority = p;
@@ -2153,6 +2182,7 @@ function setTaskAddedBy(who) {
 async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
+    if (!taskFormLoc) { toast('Select a property', 'e'); return; }
     const tasks = getTasks();
 
     if (editingTaskId) {
@@ -2163,6 +2193,7 @@ async function submitTaskForm() {
         tasks[idx].priority    = taskFormPriority;
         tasks[idx].due_date    = document.getElementById('t-due').value || null;
         tasks[idx].added_by    = taskFormAddedBy;
+        tasks[idx].location    = taskFormLoc;
         saveTasks(tasks);
         if (sbClient) sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => { if (error) console.warn('Task update failed:', error.message); });
         closeAddTaskForm();
@@ -2176,6 +2207,7 @@ async function submitTaskForm() {
             priority:         taskFormPriority,
             due_date:         document.getElementById('t-due').value || null,
             added_by:         taskFormAddedBy,
+            location:         taskFormLoc,
             status:           'open',
             completion_note:  '',
             completed_at:     null,

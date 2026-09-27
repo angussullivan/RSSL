@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS public.hours_entries (
     location    text NOT NULL CHECK (location IN ('airbnb', 'laundry', 'tamarama')),
     hours       numeric(4,1) NOT NULL,
     notes       text DEFAULT '',
+    start_time  text,
+    end_time    text,
     created_at  timestamptz DEFAULT now()
 );
 
@@ -91,6 +93,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     priority         text NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
     due_date         date,
     added_by         text NOT NULL DEFAULT 'Owner',
+    location         text CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama')),
     status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed')),
     completion_note  text DEFAULT '',
     completed_at     timestamptz,
@@ -126,7 +129,17 @@ CREATE POLICY "app_all_cleaning" ON public.cleaning_blocks
     WITH CHECK (true);
 
 -- ── UPGRADE EXISTING INSTALLATION ────────────────────────────────────────────
--- Run these on an existing Supabase project to apply schema improvements:
+-- Run these now on the live Supabase project — required for the task-property
+-- and hours start/finish-time features:
+
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS location text;
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_location_check;
+ALTER TABLE public.tasks ADD CONSTRAINT tasks_location_check CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama'));
+
+ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS start_time text;
+ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS end_time   text;
+
+-- Older, optional improvements:
 --
 -- CREATE INDEX IF NOT EXISTS hours_entries_date_idx ON public.hours_entries (date);
 -- CREATE INDEX IF NOT EXISTS airbnb_bookings_checkin_idx  ON public.airbnb_bookings (checkin);
