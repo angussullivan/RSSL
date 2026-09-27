@@ -65,6 +65,14 @@ function fh(h) {
     return Number.isInteger(h) ? `${h}` : parseFloat(h).toFixed(1);
 }
 
+function fmtTime(t) {
+    if (!t) return '';
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 || 12;
+    return m === 0 ? `${h12}${ampm}` : `${h12}:${String(m).padStart(2,'0')}${ampm}`;
+}
+
 function fmtDate(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return `${d} ${MONTH_NAMES[m - 1].slice(0, 3)}`;
@@ -140,14 +148,16 @@ function buildDailySummary(entries, completedTasks = []) {
     const date  = fmtDateFull(todayStr);
 
     let tableRows = '';
-    Object.entries(LOCS).forEach(([id, name]) => {
-        const h = entries.filter(e => e.location === id).reduce((a, e) => a + parseFloat(e.hours), 0);
-        if (h > 0) {
-            tableRows += `<tr>
-                <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;color:#2C3E50">${name}</td>
-                <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;color:#1B4965">${fh(h)}h</td>
-            </tr>`;
-        }
+    entries.slice().sort((a, b) => (a.start_time || '').localeCompare(b.start_time || '')).forEach(e => {
+        const name = LOCS[e.location] || e.location;
+        const timeLabel = (e.start_time && e.end_time) ? `${fmtTime(e.start_time)}–${fmtTime(e.end_time)}` : '';
+        tableRows += `<tr>
+            <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;color:#2C3E50">
+                <div>${name}</div>
+                ${timeLabel ? `<div style="font-size:0.75rem;color:#aaa;margin-top:2px">${timeLabel}</div>` : ''}
+            </td>
+            <td style="padding:9px 0;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600;color:#1B4965;vertical-align:top">${fh(parseFloat(e.hours))}h</td>
+        </tr>`;
     });
 
     const body = total === 0
@@ -186,9 +196,16 @@ function buildWeeklySummary(entries, weekDates) {
         const de    = entries.filter(e => e.date === ds);
         const dt    = de.reduce((a, e) => a + parseFloat(e.hours), 0);
         const color = dt > 0 ? '#2C3E50' : '#ccc';
+        const times = de.slice().sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+            .filter(e => e.start_time && e.end_time)
+            .map(e => `${fmtTime(e.start_time)}–${fmtTime(e.end_time)}`)
+            .join(', ');
         dayRows += `<tr>
-            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;color:${color};font-size:0.9rem">${dayNames[i]}, ${fmtDate(ds)}</td>
-            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;text-align:right;font-weight:${dt > 0 ? 600 : 400};color:${color};font-size:0.9rem">${dt > 0 ? fh(dt) + 'h' : '—'}</td>
+            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;color:${color};font-size:0.9rem">
+                <div>${dayNames[i]}, ${fmtDate(ds)}</div>
+                ${times ? `<div style="font-size:0.72rem;color:#aaa;margin-top:1px">${times}</div>` : ''}
+            </td>
+            <td style="padding:7px 0;border-bottom:1px solid #f5f5f5;text-align:right;font-weight:${dt > 0 ? 600 : 400};color:${color};font-size:0.9rem;vertical-align:top">${dt > 0 ? fh(dt) + 'h' : '—'}</td>
         </tr>`;
     });
 
