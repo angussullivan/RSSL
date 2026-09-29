@@ -2399,15 +2399,23 @@ async function submitCompleteTask() {
     const tasks = getTasks();
     const idx   = tasks.findIndex(t => t.id === completingTaskId);
     if (idx === -1) return;
+    const photosToDelete = tasks[idx].photos || [];
     tasks[idx].status          = 'completed';
     tasks[idx].completed_at    = new Date().toISOString();
     tasks[idx].completion_note = note;
     tasks[idx].notified_owners = false;
+    tasks[idx].photos          = []; // completed tasks don't keep their photos, to save storage
     saveTasks(tasks);
     if (sbClient) {
         sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => {
             if (error) console.warn('Task complete upsert failed:', error.message);
         });
+        const paths = photosToDelete.map(p => p.path).filter(Boolean);
+        if (paths.length) {
+            sbClient.storage.from('task-photos').remove(paths).then(({ error }) => {
+                if (error) console.warn('Photo delete on complete failed:', error.message);
+            });
+        }
     }
     closeCompleteTask();
     renderTasks();
