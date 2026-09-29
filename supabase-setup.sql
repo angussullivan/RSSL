@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     due_date         date,
     added_by         text NOT NULL DEFAULT 'Owner',
     location         text CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama')),
+    photos           jsonb NOT NULL DEFAULT '[]',
     status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed')),
     completion_note  text DEFAULT '',
     completed_at     timestamptz,
@@ -128,16 +129,53 @@ CREATE POLICY "app_all_cleaning" ON public.cleaning_blocks
     USING (true)
     WITH CHECK (true);
 
+-- Storage bucket for task photos (up to 3 per task, uploaded from the app)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('task-photos', 'task-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "app_upload_task_photos" ON storage.objects
+    FOR INSERT TO anon
+    WITH CHECK (bucket_id = 'task-photos');
+
+CREATE POLICY "app_read_task_photos" ON storage.objects
+    FOR SELECT TO anon
+    USING (bucket_id = 'task-photos');
+
+CREATE POLICY "app_delete_task_photos" ON storage.objects
+    FOR DELETE TO anon
+    USING (bucket_id = 'task-photos');
+
 -- ── UPGRADE EXISTING INSTALLATION ────────────────────────────────────────────
--- Run these now on the live Supabase project — required for the task-property
--- and hours start/finish-time features:
+-- Run these now on the live Supabase project — required for task photos:
 
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS location text;
-ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_location_check;
-ALTER TABLE public.tasks ADD CONSTRAINT tasks_location_check CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama'));
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS photos jsonb NOT NULL DEFAULT '[]';
 
-ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS start_time text;
-ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS end_time   text;
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('task-photos', 'task-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "app_upload_task_photos" ON storage.objects;
+CREATE POLICY "app_upload_task_photos" ON storage.objects
+    FOR INSERT TO anon
+    WITH CHECK (bucket_id = 'task-photos');
+
+DROP POLICY IF EXISTS "app_read_task_photos" ON storage.objects;
+CREATE POLICY "app_read_task_photos" ON storage.objects
+    FOR SELECT TO anon
+    USING (bucket_id = 'task-photos');
+
+DROP POLICY IF EXISTS "app_delete_task_photos" ON storage.objects;
+CREATE POLICY "app_delete_task_photos" ON storage.objects
+    FOR DELETE TO anon
+    USING (bucket_id = 'task-photos');
+
+-- Already applied (kept for reference — task-property and hours start/finish-time features):
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS location text;
+-- ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_location_check;
+-- ALTER TABLE public.tasks ADD CONSTRAINT tasks_location_check CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama'));
+-- ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS start_time text;
+-- ALTER TABLE public.hours_entries ADD COLUMN IF NOT EXISTS end_time   text;
 
 -- Older, optional improvements:
 --

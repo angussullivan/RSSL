@@ -441,6 +441,11 @@
             <label class="slbl">Notes (optional)</label>
             <textarea class="notes-inp" id="t-desc" rows="3" placeholder="Additional details…"></textarea>
         </div>
+        <div class="ssec">
+            <label class="slbl">Photos (optional, up to 3)</label>
+            <div id="t-photos" style="display:flex;gap:8px"></div>
+            <input type="file" id="t-photo-input" accept="image/*" multiple style="display:none" onchange="onTaskPhotoPick(this)">
+        </div>
         <button class="btn1" id="tov-submit" onclick="submitTaskForm()">Add Task</button>
         <button class="btn2" onclick="closeAddTaskForm()">Cancel</button>
     </div>
@@ -519,6 +524,11 @@
         <button class="btn2" id="cbov-delete" onclick="deleteCleaningBlock()">Remove Block</button>
         <button class="btn2" onclick="closeCleaningForm()">Cancel</button>
     </div>
+</div>
+
+<!-- Photo viewer -->
+<div id="photoViewerOv" onclick="closePhotoViewer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;align-items:center;justify-content:center;padding:24px">
+    <img id="photoViewerImg" style="max-width:100%;max-height:100%;border-radius:10px">
 </div>
 
 <!-- Toast -->
@@ -2053,6 +2063,8 @@ function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(task
 let taskFormPriority = 'normal';
 let taskFormAddedBy  = 'Angus';
 let taskFormLoc      = null;
+let taskFormPhotos   = []; // { url, path, isNew, blob }
+let taskFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
 let completingTaskId = null;
 let editingTaskId    = null;
 
@@ -2111,6 +2123,10 @@ function taskItemHTML(task) {
         : '';
     const loc      = LOCS.find(l => l.id === task.location);
     const locBadge = loc ? `<span class="task-badge loc">${loc.name}</span>` : '';
+    const photosHTML = (task.photos && task.photos.length)
+        ? `<div style="display:flex;gap:6px;margin-top:8px">${task.photos.map(p =>
+            `<img src="${escHtml(p.url)}" onclick="openPhotoViewer(this.src)" style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer">`).join('')}</div>`
+        : '';
     return `<div class="task-item ${isDone ? 'done' : ''}">
         <div class="task-dot ${task.priority}"></div>
         <div class="task-info">
@@ -2119,6 +2135,7 @@ function taskItemHTML(task) {
             <div class="task-title ${isDone ? 'done' : ''}">${escHtml(task.title)}</div>
             ${task.description ? `<div class="task-desc">${escHtml(task.description)}</div>` : ''}
             ${completionLine}
+            ${photosHTML}
             <div class="task-meta">Added by ${escHtml(task.added_by)} · ${fmt(strToDate(task.created_at.slice(0,10)))}</div>
         </div>
         <div style="display:flex;align-items:center">${editBtn}${doneBtn}</div>
@@ -2146,9 +2163,16 @@ function openAddTaskForm(id = null) {
     });
     document.getElementById('tov-title').textContent  = task ? 'Edit Task'    : 'Add Task';
     document.getElementById('tov-submit').textContent = task ? 'Save Changes' : 'Add Task';
+    taskFormPhotos = (task?.photos || []).map(p => ({ url: p.url, path: p.path, isNew: false }));
+    taskFormPhotosToDelete = [];
+    renderTaskPhotos();
     document.getElementById('tov').classList.add('on');
 }
-function closeAddTaskForm() { document.getElementById('tov').classList.remove('on'); editingTaskId = null; }
+function closeAddTaskForm() {
+    document.getElementById('tov').classList.remove('on');
+    editingTaskId = null;
+    discardTaskFormPhotos();
+}
 function closeAddTaskFormIfBg(e) { if (e.target === document.getElementById('tov')) closeAddTaskForm(); }
 
 function setTaskLoc(loc) {
@@ -2156,6 +2180,118 @@ function setTaskLoc(loc) {
     LOCS.forEach(l => {
         document.getElementById(`tlb-${l.id}`)?.classList.toggle('sel', l.id === loc);
     });
+}
+
+// ── TASK PHOTOS ──────────────────────────────────────────────
+function compressImage(file, maxDim = 1600, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+                    else { width = Math.round(width * maxDim / height); height = maxDim; }
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; // flatten transparency (e.g. PNG) onto white before JPEG encoding
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/jpeg', quality);
+            };
+            img.onerror = () => reject(new Error('Could not load image'));
+            img.src = reader.result;
+        };
+        reader.onerror = () => reject(new Error('Could not read file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderTaskPhotos() {
+    const slots = taskFormPhotos.map((p, i) => `
+        <div style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0">
+            <img src="${escHtml(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block">
+            <button type="button" onclick="removeTaskPhoto(${i})" title="Remove"
+                style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:.7rem;line-height:1;cursor:pointer">✕</button>
+        </div>`).join('');
+    const addSlot = taskFormPhotos.length < 3
+        ? `<button type="button" onclick="document.getElementById('t-photo-input').click()"
+            style="width:64px;height:64px;border-radius:10px;border:2px dashed var(--clean);background:#fff;color:var(--text-light);font-size:1.5rem;cursor:pointer;flex-shrink:0">+</button>`
+        : '';
+    document.getElementById('t-photos').innerHTML = slots + addSlot;
+}
+
+async function onTaskPhotoPick(input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    const room = 3 - taskFormPhotos.length;
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} allowed (max 3)`, 'e');
+    for (const file of files.slice(0, room)) {
+        try {
+            const blob = await compressImage(file);
+            taskFormPhotos.push({ url: URL.createObjectURL(blob), blob, isNew: true });
+            renderTaskPhotos();
+        } catch (err) {
+            console.warn('Photo compress failed:', err.message);
+            toast('Could not process that photo', 'e');
+        }
+    }
+}
+
+function removeTaskPhoto(i) {
+    const p = taskFormPhotos[i];
+    if (!p) return;
+    // Defer the actual storage delete until Save — removing here and then
+    // hitting Cancel must not leave the saved task pointing at a deleted file.
+    if (!p.isNew && p.path) taskFormPhotosToDelete.push(p.path);
+    if (p.isNew && p.url) URL.revokeObjectURL(p.url);
+    taskFormPhotos.splice(i, 1);
+    renderTaskPhotos();
+}
+
+function discardTaskFormPhotos() {
+    taskFormPhotos.forEach(p => { if (p.isNew && p.url) URL.revokeObjectURL(p.url); });
+    taskFormPhotos = [];
+    taskFormPhotosToDelete = [];
+}
+
+async function uploadOneTaskPhoto(taskId, p, i) {
+    if (!p.isNew) return { path: p.path, url: p.url };
+    if (!sbClient) { toast('Photos need Supabase connected — task saved without new photos', 'e'); return null; }
+    const path = `${taskId}/${Date.now().toString(36)}-${i}.jpg`;
+    try {
+        const { error } = await sbClient.storage.from('task-photos').upload(path, p.blob, { contentType: 'image/jpeg' });
+        if (error) throw error;
+        const { data } = sbClient.storage.from('task-photos').getPublicUrl(path);
+        URL.revokeObjectURL(p.url);
+        return { path, url: data.publicUrl };
+    } catch (err) {
+        console.warn('Photo upload failed:', err.message);
+        toast('A photo failed to upload', 'e');
+        return null;
+    }
+}
+
+async function uploadPendingTaskPhotos(taskId) {
+    const uploaded = await Promise.all(taskFormPhotos.map((p, i) => uploadOneTaskPhoto(taskId, p, i)));
+    if (sbClient && taskFormPhotosToDelete.length) {
+        sbClient.storage.from('task-photos').remove(taskFormPhotosToDelete).then(({ error }) => {
+            if (error) console.warn('Photo delete failed:', error.message);
+        });
+    }
+    taskFormPhotosToDelete = [];
+    return uploaded.filter(Boolean);
+}
+
+function openPhotoViewer(url) {
+    document.getElementById('photoViewerImg').src = url;
+    document.getElementById('photoViewerOv').style.display = 'flex';
+}
+function closePhotoViewer() {
+    document.getElementById('photoViewerOv').style.display = 'none';
 }
 
 function setTaskPriority(p) {
@@ -2183,17 +2319,38 @@ async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
     if (!taskFormLoc) { toast('Select a property', 'e'); return; }
+    const taskId = editingTaskId || (Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+
+    const submitBtn = document.getElementById('tov-submit');
+    const prevLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving…';
+    let photos;
+    try {
+        photos = await uploadPendingTaskPhotos(taskId);
+    } catch (err) {
+        console.warn('Photo upload step failed:', err.message);
+        toast('Could not save photos — task not saved, try again', 'e');
+        return;
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevLabel;
+    }
+
+    // Re-read now, right before use, to minimise the window for a concurrent
+    // background sync (which ran while photos were uploading) to be clobbered.
     const tasks = getTasks();
 
     if (editingTaskId) {
         const idx = tasks.findIndex(t => t.id === editingTaskId);
-        if (idx === -1) return;
+        if (idx === -1) { toast('This task no longer exists — nothing saved', 'e'); closeAddTaskForm(); return; }
         tasks[idx].title       = title;
         tasks[idx].description = document.getElementById('t-desc').value.trim();
         tasks[idx].priority    = taskFormPriority;
         tasks[idx].due_date    = document.getElementById('t-due').value || null;
         tasks[idx].added_by    = taskFormAddedBy;
         tasks[idx].location    = taskFormLoc;
+        tasks[idx].photos      = photos;
         saveTasks(tasks);
         if (sbClient) sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => { if (error) console.warn('Task update failed:', error.message); });
         closeAddTaskForm();
@@ -2201,13 +2358,14 @@ async function submitTaskForm() {
         toast('Task updated!', 'g');
     } else {
         const task = {
-            id:               Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+            id:               taskId,
             title,
             description:      document.getElementById('t-desc').value.trim(),
             priority:         taskFormPriority,
             due_date:         document.getElementById('t-due').value || null,
             added_by:         taskFormAddedBy,
             location:         taskFormLoc,
+            photos,
             status:           'open',
             completion_note:  '',
             completed_at:     null,
