@@ -69,23 +69,23 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
     const rows = changes.map(c => {
         const b = c.booking;
         const when = b.checkin === todayStr ? 'TODAY' : 'TOMORROW';
-        let badge, detail;
+        let badge, sentence;
         if (c.type === 'new') {
             badge = `<span style="background:#27AE60;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">NEW BOOKING</span>`;
-            detail = `Check-in ${when} (${fmtDate(b.checkin)}) · Check-out ${fmtDate(b.checkout)}`;
+            sentence = `A new guest has been booked in — checking in <strong>${when} (${fmtDate(b.checkin)})</strong>, checking out <strong>${fmtDate(b.checkout)}</strong>.`;
         } else if (c.type === 'cancelled') {
             badge = `<span style="background:#C0392B;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CANCELLED</span>`;
-            detail = `Was checking in ${when} (${fmtDate(b.checkin)}) · Checking out ${fmtDate(b.checkout)}`;
+            sentence = `This booking has been <strong>cancelled</strong>. The guest was due to check in <strong>${when} (${fmtDate(b.checkin)})</strong> and check out <strong>${fmtDate(b.checkout)}</strong>.`;
         } else {
-            badge = `<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CHANGED</span>`;
-            detail = `Was ${fmtDate(c.previous.checkin)} → ${fmtDate(c.previous.checkout)}<br>Now ${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}`;
+            badge = `<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">DATES CHANGED</span>`;
+            sentence = `The dates have changed. It <strong>was</strong> check-in ${fmtDate(c.previous.checkin)} → check-out ${fmtDate(c.previous.checkout)}. It is <strong>now</strong> check-in ${fmtDate(b.checkin)} → check-out ${fmtDate(b.checkout)}.`;
         }
         return `<div style="background:#fff5f5;border:1px solid #f5c6c6;border-radius:10px;padding:14px;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
                 ${badge}
-                <span style="font-weight:700;color:#C0392B;font-size:0.92rem">${b.room}</span>
+                <span style="font-weight:800;color:#C0392B;font-size:0.95rem">${b.room}</span>
             </div>
-            <div style="font-size:0.85rem;color:#5D7285;line-height:1.5">${detail}</div>
+            <div style="font-size:0.9rem;color:#2C3E50;line-height:1.55">${sentence}</div>
         </div>`;
     }).join('');
 
@@ -105,6 +105,7 @@ function buildAlertEmail(changes, todayStr, tomorrowStr) {
            View Schedule Now →
         </a>
     </p>
+    <p style="font-size:0.78rem;color:#999;text-align:center;margin:14px 0 0">Note: the app's own calendar can take up to an hour to catch up with this change.</p>
   </div>
   <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
     Sent automatically by Hours Tracker · <a href="https://angussullivan.github.io/cleaner-app/cleaner.html" style="color:#62B6CB">Open app</a>
