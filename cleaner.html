@@ -2236,10 +2236,12 @@ function setTaskAudience(who) {
 const TASK_PRIORITY_ORDER = { urgent: 0, normal: 1, low: 2 };
 
 // Groups Angelica's open tasks by property (in LOCS order, then anything
-// with no property set last), and within each property group orders
-// urgent → normal → low.
+// with no property set last). Within each property group, tasks past their
+// due date are pulled out into their own "Overdue !" section — regardless
+// of priority — inserted between the urgent and normal priority tasks.
 function groupedOpenTasksHTML(tasks) {
     if (tasks.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
+    const today  = todayStr();
     const groups = LOCS.map(l => ({ id: l.id, label: l.name, tasks: [] }));
     const other  = { id: null, label: 'Other', tasks: [] };
     tasks.forEach(t => {
@@ -2248,10 +2250,20 @@ function groupedOpenTasksHTML(tasks) {
     return [...groups, other]
         .filter(g => g.tasks.length > 0)
         .map(g => {
-            const sorted = g.tasks.slice().sort((a, b) =>
+            const overdue = g.tasks.filter(t => t.due_date && t.due_date < today);
+            const rest    = g.tasks.filter(t => !(t.due_date && t.due_date < today));
+            const sortByPriority = (arr) => arr.slice().sort((a, b) =>
                 (TASK_PRIORITY_ORDER[a.priority] ?? 1) - (TASK_PRIORITY_ORDER[b.priority] ?? 1));
-            return `<div class="done-toggle" style="margin-top:14px">${escHtml(g.label)}</div>
-                <div style="margin-top:8px">${sorted.map(taskItemHTML).join('')}</div>`;
+            const urgentRest = sortByPriority(rest.filter(t => t.priority === 'urgent'));
+            const normalRest = sortByPriority(rest.filter(t => t.priority !== 'urgent'));
+
+            const blocks = [];
+            if (urgentRest.length > 0) blocks.push(`<div style="margin-top:8px">${urgentRest.map(taskItemHTML).join('')}</div>`);
+            if (overdue.length > 0) blocks.push(`<div class="done-toggle" style="margin-top:10px;color:var(--danger)">Overdue !</div>
+                <div style="margin-top:8px">${sortByPriority(overdue).map(taskItemHTML).join('')}</div>`);
+            if (normalRest.length > 0) blocks.push(`<div style="margin-top:8px">${normalRest.map(taskItemHTML).join('')}</div>`);
+
+            return `<div class="done-toggle" style="margin-top:14px">${escHtml(g.label)}</div>${blocks.join('')}`;
         }).join('');
 }
 
