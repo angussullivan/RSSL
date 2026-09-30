@@ -2141,6 +2141,9 @@ function taskItemHTML(task) {
     const doneBtn  = isDone ? '' : `<button class="rbtn" onclick="openCompleteTask('${task.id}')" title="Mark done">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
     </button>`;
+    const reopenBtn = isDone ? `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean)" onclick="reopenTask('${task.id}')" title="Not done yet — reopen">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
+    </button>` : '';
     const completionLine = isDone && task.completion_note
         ? `<div class="task-desc" style="font-style:italic">"${escHtml(task.completion_note)}"</div>`
         : '';
@@ -2161,7 +2164,7 @@ function taskItemHTML(task) {
             ${photosHTML}
             <div class="task-meta">Added by ${escHtml(task.added_by)} · ${fmt(strToDate(task.created_at.slice(0,10)))}</div>
         </div>
-        <div style="display:flex;align-items:center">${editBtn}${doneBtn}</div>
+        <div style="display:flex;align-items:center">${editBtn}${doneBtn}${reopenBtn}</div>
     </div>`;
 }
 
@@ -2443,6 +2446,31 @@ async function submitCompleteTask() {
     closeCompleteTask();
     renderTasks();
     toast('Task marked done!', 'g');
+}
+
+function reopenTask(id) {
+    const task = getTasks().find(t => t.id === id);
+    if (!task) return;
+    const msg = task.completion_note
+        ? 'This will move the task back to open and clear its completion note.'
+        : 'This will move the task back to open.';
+    showConfirm('Reopen task?', msg, 'Reopen', () => {
+        const tasks = getTasks();
+        const idx   = tasks.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        tasks[idx].status          = 'open';
+        tasks[idx].completed_at    = null;
+        tasks[idx].completion_note = '';
+        tasks[idx].notified_owners = false;
+        saveTasks(tasks);
+        if (sbClient) {
+            sbClient.from('tasks').upsert(tasks[idx]).then(({ error }) => {
+                if (error) console.warn('Task reopen failed:', error.message);
+            });
+        }
+        renderTasks();
+        toast('Task reopened', 'g');
+    }, false);
 }
 
 // ============================================================
