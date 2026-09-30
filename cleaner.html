@@ -1940,6 +1940,7 @@ let issueFormPriority = 'normal';
 let editingIssueId    = null;
 let issueFormPhotos   = []; // { url, path, isNew, blob }
 let issueFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
+let issueFormSaving = false; // true while submitIssueForm's photo upload is in flight
 
 function openIssueForm(id = null) {
     editingIssueId = id;
@@ -1961,6 +1962,10 @@ function openIssueForm(id = null) {
     document.getElementById('iov').classList.add('on');
 }
 function closeIssueForm() {
+    // Ignore background-tap/Cancel while a save is mid-flight — closing here
+    // would clear editingIssueId out from under submitIssueForm and turn an
+    // edit into a duplicate insert once the upload resolves.
+    if (issueFormSaving) return;
     document.getElementById('iov').classList.remove('on');
     editingIssueId = null;
     discardIssueFormPhotos();
@@ -2066,12 +2071,18 @@ async function submitIssueForm() {
     if (!issueFormLoc) { toast('Select a location', 'e'); return; }
     const desc = document.getElementById('i-desc').value.trim();
     if (!desc) { toast('Please describe the issue', 'e'); return; }
-    const issueId = editingIssueId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    // Snapshot which issue (if any) this save is for — editingIssueId itself
+    // can't change underneath us since closeIssueForm() now refuses to run
+    // while issueFormSaving is true, but this local copy is the one the
+    // rest of the function actually acts on either way.
+    const wasEditingId = editingIssueId;
+    const issueId = wasEditingId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
 
     const submitBtn = document.getElementById('iov-submit');
     const prevLabel = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving…';
+    issueFormSaving = true;
     let photos;
     try {
         photos = await uploadPendingIssuePhotos(issueId);
@@ -2082,12 +2093,13 @@ async function submitIssueForm() {
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = prevLabel;
+        issueFormSaving = false;
     }
 
     const issues = getIssues();
 
-    if (editingIssueId) {
-        const idx = issues.findIndex(i => i.id === editingIssueId);
+    if (wasEditingId) {
+        const idx = issues.findIndex(i => i.id === wasEditingId);
         if (idx === -1) { toast('This issue no longer exists — nothing saved', 'e'); closeIssueForm(); return; }
         issues[idx].location    = issueFormLoc;
         issues[idx].description = desc;
@@ -2213,6 +2225,7 @@ let taskFormAddedBy   = 'Angus';
 let taskFormLoc       = null;
 let taskFormPhotos   = []; // { url, path, isNew, blob }
 let taskFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
+let taskFormSaving = false; // true while submitTaskForm's photo upload is in flight
 let completingTaskId = null;
 let editingTaskId    = null;
 
@@ -2372,6 +2385,10 @@ function openAddTaskForm(id = null) {
     document.getElementById('tov').classList.add('on');
 }
 function closeAddTaskForm() {
+    // Ignore background-tap/Cancel while a save is mid-flight — closing here
+    // would clear editingTaskId out from under submitTaskForm and turn an
+    // edit into a duplicate insert once the upload resolves.
+    if (taskFormSaving) return;
     document.getElementById('tov').classList.remove('on');
     editingTaskId = null;
     discardTaskFormPhotos();
@@ -2522,12 +2539,18 @@ async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
     if (!taskFormLoc) { toast('Select a property', 'e'); return; }
-    const taskId = editingTaskId || (Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+    // Snapshot which task (if any) this save is for — editingTaskId itself
+    // can't change underneath us since closeAddTaskForm() now refuses to run
+    // while taskFormSaving is true, but this local copy is the one the rest
+    // of the function actually acts on either way.
+    const wasEditingId = editingTaskId;
+    const taskId = wasEditingId || (Date.now().toString(36) + Math.random().toString(36).slice(2,6));
 
     const submitBtn = document.getElementById('tov-submit');
     const prevLabel = submitBtn.textContent;
     submitBtn.disabled = true;
     submitBtn.textContent = 'Saving…';
+    taskFormSaving = true;
     let photos;
     try {
         photos = await uploadPendingTaskPhotos(taskId);
@@ -2538,14 +2561,15 @@ async function submitTaskForm() {
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = prevLabel;
+        taskFormSaving = false;
     }
 
     // Re-read now, right before use, to minimise the window for a concurrent
     // background sync (which ran while photos were uploading) to be clobbered.
     const tasks = getTasks();
 
-    if (editingTaskId) {
-        const idx = tasks.findIndex(t => t.id === editingTaskId);
+    if (wasEditingId) {
+        const idx = tasks.findIndex(t => t.id === wasEditingId);
         if (idx === -1) { toast('This task no longer exists — nothing saved', 'e'); closeAddTaskForm(); return; }
         tasks[idx].title       = title;
         tasks[idx].description = document.getElementById('t-desc').value.trim();
