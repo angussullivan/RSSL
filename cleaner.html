@@ -2178,6 +2178,9 @@ function renderTasks() {
 
     document.getElementById('tab-tasks').innerHTML = `
         <div class="card">
+            <button class="btn1" onclick="openAddChooser()">+ Add Task or Report an Issue</button>
+        </div>
+        <div class="card">
             <div class="row-bet" style="margin-bottom:12px">
                 <span class="card-lbl" style="margin:0">Tasks</span>
                 ${openTasks.length > 0 ? `<span class="badge r">${openTasks.length} open</span>` : ''}
@@ -2192,9 +2195,6 @@ function renderTasks() {
                 ${issues.length > 0 ? `<span class="badge r">${issues.length} open</span>` : ''}
             </div>
             ${issuesHTML}
-        </div>
-        <div class="card">
-            <button class="btn1" onclick="openAddChooser()">+ Add Task or Report an Issue</button>
         </div>
     `;
 }
