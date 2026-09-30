@@ -255,7 +255,7 @@
         .task-badge.normal{background:#e8f4fa;color:var(--ocean)}
         .task-badge.urgent{background:#fde8e8;color:var(--danger)}
         .task-badge.loc{background:var(--foam);color:var(--ocean)}
-        .done-toggle{font-size:.77rem;font-weight:700;color:var(--text-light);cursor:pointer;padding:8px 0;display:block;text-align:center}
+        .done-toggle{font-size:.7rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-light);padding-bottom:2px;border-bottom:1px solid var(--clean)}
 
         /* ── PRIORITY / ADDED-BY BUTTON GROUPS ── */
         .pbtn-row{display:flex;gap:8px;margin-bottom:8px}
@@ -417,6 +417,13 @@
         <div class="ssec">
             <label class="slbl">Property <span style="color:var(--danger)">*</span></label>
             <div class="pbtn-row" id="t-locs"></div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Assigned to</label>
+            <div class="pbtn-row">
+                <button class="pbtn sel" id="tat-angelica" onclick="setTaskAssignedTo('angelica')">Angelica</button>
+                <button class="pbtn" id="tat-owners" onclick="setTaskAssignedTo('owners')">Angus &amp; Jenna</button>
+            </div>
         </div>
         <div class="ssec">
             <label class="slbl">Added by</label>
@@ -2083,19 +2090,27 @@ function getTasks() {
 }
 function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(tasks)); }
 
-let taskFormPriority = 'normal';
-let taskFormAddedBy  = 'Angus';
-let taskFormLoc      = null;
+let taskAudience      = 'angelica'; // which tab of the Tasks page is showing
+let taskFormPriority  = 'normal';
+let taskFormAddedBy   = 'Angus';
+let taskFormAssignedTo = 'angelica';
+let taskFormLoc       = null;
 let taskFormPhotos   = []; // { url, path, isNew, blob }
 let taskFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
 let completingTaskId = null;
 let editingTaskId    = null;
 
+function setTaskAudience(who) {
+    taskAudience = who;
+    renderTasks();
+}
+
 function renderTasks() {
-    const tasks     = getTasks();
-    const openTasks = tasks.filter(t => t.status === 'open');
-    const allDone   = tasks.filter(t => t.status === 'completed');
-    const doneTasks = allDone.slice(0, 10);
+    const allTasks  = getTasks().filter(t => (t.assigned_to || 'angelica') === taskAudience);
+    const openTasks = allTasks.filter(t => t.status === 'open');
+    // The 2-day purge only runs during a Supabase sync, so this stays capped
+    // defensively in case a device has been offline a while.
+    const doneTasks = allTasks.filter(t => t.status === 'completed').slice(0, 15);
     const issues    = getIssues().filter(i => !i.resolved);
 
     const openHTML = openTasks.length > 0
@@ -2103,19 +2118,27 @@ function renderTasks() {
         : `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
 
     const doneHTML = doneTasks.length > 0
-        ? `<details style="margin-top:8px"><summary class="done-toggle">Completed (${allDone.length})</summary><div style="margin-top:8px">${doneTasks.map(t=>taskItemHTML(t)).join('')}</div></details>`
+        ? `<div class="done-toggle" style="margin-top:14px">Completed (recent)</div>
+           <div style="margin-top:8px">${doneTasks.map(taskItemHTML).join('')}</div>`
         : '';
 
     const issuesHTML = issues.length > 0
         ? issues.slice(0, 10).map(issueItemHTML).join('')
         : `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
 
+    const audienceToggle = `
+        <div style="display:flex;background:#eef1f5;border-radius:12px;padding:3px;margin-bottom:14px">
+            <button onclick="setTaskAudience('angelica')" style="flex:1;padding:8px 0;border-radius:9px;border:none;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;${taskAudience==='angelica'?'background:#fff;color:var(--ocean);box-shadow:0 1px 5px rgba(0,0,0,.1)':'background:transparent;color:var(--text-light)'}">Angelica</button>
+            <button onclick="setTaskAudience('owners')" style="flex:1;padding:8px 0;border-radius:9px;border:none;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;${taskAudience==='owners'?'background:#fff;color:var(--ocean);box-shadow:0 1px 5px rgba(0,0,0,.1)':'background:transparent;color:var(--text-light)'}">Angus &amp; Jenna</button>
+        </div>`;
+
     document.getElementById('tab-tasks').innerHTML = `
         <div class="card">
             <div class="row-bet" style="margin-bottom:12px">
-                <span class="card-lbl" style="margin:0">Tasks for Angelica</span>
+                <span class="card-lbl" style="margin:0">Tasks</span>
                 ${openTasks.length > 0 ? `<span class="badge r">${openTasks.length} open</span>` : ''}
             </div>
+            ${audienceToggle}
             ${openHTML}
             ${doneHTML}
             <button class="btn2" style="margin-top:10px" onclick="openAddTaskForm()">+ Add Task</button>
@@ -2171,9 +2194,10 @@ function taskItemHTML(task) {
 function openAddTaskForm(id = null) {
     editingTaskId = id;
     const task = id ? getTasks().find(t => t.id === id) : null;
-    taskFormPriority = task ? task.priority : 'normal';
-    taskFormAddedBy  = task ? task.added_by : 'Angus';
-    taskFormLoc      = task ? task.location : null;
+    taskFormPriority   = task ? task.priority : 'normal';
+    taskFormAddedBy    = task ? task.added_by : 'Angus';
+    taskFormAssignedTo = task ? (task.assigned_to || 'angelica') : taskAudience;
+    taskFormLoc        = task ? task.location : null;
     document.getElementById('t-locs').innerHTML = LOCS.map(l => `
         <button class="pbtn${taskFormLoc===l.id?' sel':''}" id="tlb-${l.id}" onclick="setTaskLoc('${l.id}')">${l.name}</button>`).join('');
     document.getElementById('t-title').value = task ? task.title          : '';
@@ -2182,6 +2206,10 @@ function openAddTaskForm(id = null) {
     ['Angus','Jenna'].forEach(w => {
         const b = document.getElementById(`tab-${w}`);
         if (b) b.classList.toggle('sel', w === taskFormAddedBy);
+    });
+    ['angelica','owners'].forEach(w => {
+        const b = document.getElementById(`tat-${w}`);
+        if (b) b.classList.toggle('sel', w === taskFormAssignedTo);
     });
     ['low','normal','urgent'].forEach(p => {
         const b = document.getElementById(`tpb-${p}`);
@@ -2341,6 +2369,14 @@ function setTaskAddedBy(who) {
     });
 }
 
+function setTaskAssignedTo(who) {
+    taskFormAssignedTo = who;
+    ['angelica','owners'].forEach(w => {
+        const b = document.getElementById(`tat-${w}`);
+        if (b) b.classList.toggle('sel', w === who);
+    });
+}
+
 async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
@@ -2375,6 +2411,7 @@ async function submitTaskForm() {
         tasks[idx].priority    = taskFormPriority;
         tasks[idx].due_date    = document.getElementById('t-due').value || null;
         tasks[idx].added_by    = taskFormAddedBy;
+        tasks[idx].assigned_to = taskFormAssignedTo;
         tasks[idx].location    = taskFormLoc;
         tasks[idx].photos      = photos;
         saveTasks(tasks);
@@ -2390,6 +2427,7 @@ async function submitTaskForm() {
             priority:         taskFormPriority,
             due_date:         document.getElementById('t-due').value || null,
             added_by:         taskFormAddedBy,
+            assigned_to:      taskFormAssignedTo,
             location:         taskFormLoc,
             photos,
             status:           'open',

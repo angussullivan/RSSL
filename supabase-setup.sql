@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS public.tasks (
     priority         text NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
     due_date         date,
     added_by         text NOT NULL DEFAULT 'Owner',
+    assigned_to      text NOT NULL DEFAULT 'angelica' CHECK (assigned_to IN ('angelica', 'owners')),
     location         text CHECK (location IS NULL OR location IN ('airbnb', 'laundry', 'tamarama')),
     photos           jsonb NOT NULL DEFAULT '[]',
     status           text NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed')),
@@ -147,28 +148,31 @@ CREATE POLICY "app_delete_task_photos" ON storage.objects
     USING (bucket_id = 'task-photos');
 
 -- ── UPGRADE EXISTING INSTALLATION ────────────────────────────────────────────
--- Run these now on the live Supabase project — required for task photos:
+-- Run these now on the live Supabase project — required for the tasks
+-- audience split (Angelica vs Angus & Jenna):
 
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS photos jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS assigned_to text NOT NULL DEFAULT 'angelica';
+ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_assigned_to_check;
+ALTER TABLE public.tasks ADD CONSTRAINT tasks_assigned_to_check CHECK (assigned_to IN ('angelica', 'owners'));
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('task-photos', 'task-photos', true)
-ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "app_upload_task_photos" ON storage.objects;
-CREATE POLICY "app_upload_task_photos" ON storage.objects
-    FOR INSERT TO anon
-    WITH CHECK (bucket_id = 'task-photos');
-
-DROP POLICY IF EXISTS "app_read_task_photos" ON storage.objects;
-CREATE POLICY "app_read_task_photos" ON storage.objects
-    FOR SELECT TO anon
-    USING (bucket_id = 'task-photos');
-
-DROP POLICY IF EXISTS "app_delete_task_photos" ON storage.objects;
-CREATE POLICY "app_delete_task_photos" ON storage.objects
-    FOR DELETE TO anon
-    USING (bucket_id = 'task-photos');
+-- Already applied (kept for reference — task photos):
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS photos jsonb NOT NULL DEFAULT '[]';
+--
+-- INSERT INTO storage.buckets (id, name, public)
+-- VALUES ('task-photos', 'task-photos', true)
+-- ON CONFLICT (id) DO NOTHING;
+--
+-- CREATE POLICY "app_upload_task_photos" ON storage.objects
+--     FOR INSERT TO anon
+--     WITH CHECK (bucket_id = 'task-photos');
+--
+-- CREATE POLICY "app_read_task_photos" ON storage.objects
+--     FOR SELECT TO anon
+--     USING (bucket_id = 'task-photos');
+--
+-- CREATE POLICY "app_delete_task_photos" ON storage.objects
+--     FOR DELETE TO anon
+--     USING (bucket_id = 'task-photos');
 
 -- Already applied (kept for reference — task-property and hours start/finish-time features):
 -- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS location text;
