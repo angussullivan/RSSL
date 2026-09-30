@@ -486,6 +486,11 @@
             <label class="slbl">Description</label>
             <textarea class="notes-inp" id="i-desc" rows="4" placeholder="What needs attention? Be specific about where in the property…"></textarea>
         </div>
+        <div class="ssec">
+            <label class="slbl">Photos (optional, up to 3)</label>
+            <div id="i-photos" style="display:flex;gap:8px"></div>
+            <input type="file" id="i-photo-input" accept="image/*" multiple style="display:none" onchange="onIssuePhotoPick(this)">
+        </div>
         <button class="btn1" id="iov-submit" onclick="submitIssueForm()">Submit Report</button>
         <button class="btn2" onclick="closeIssueForm()">Cancel</button>
     </div>
@@ -1933,6 +1938,8 @@ function saveIssues(issues) { localStorage.setItem('ch_issues', JSON.stringify(i
 let issueFormLoc      = null;
 let issueFormPriority = 'normal';
 let editingIssueId    = null;
+let issueFormPhotos   = []; // { url, path, isNew, blob }
+let issueFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
 
 function openIssueForm(id = null) {
     editingIssueId = id;
@@ -1948,9 +1955,16 @@ function openIssueForm(id = null) {
     setIssuePriority(issueFormPriority);
     document.getElementById('iov-title').textContent  = issue ? 'Edit Issue'    : 'Report an Issue';
     document.getElementById('iov-submit').textContent = issue ? 'Save Changes'  : 'Submit Report';
+    issueFormPhotos = (issue?.photos || []).map(p => ({ url: p.url, path: p.path, isNew: false }));
+    issueFormPhotosToDelete = [];
+    renderIssuePhotos();
     document.getElementById('iov').classList.add('on');
 }
-function closeIssueForm() { document.getElementById('iov').classList.remove('on'); editingIssueId = null; }
+function closeIssueForm() {
+    document.getElementById('iov').classList.remove('on');
+    editingIssueId = null;
+    discardIssueFormPhotos();
+}
 function closeIssueFormIfBg(e) { if (e.target === document.getElementById('iov')) closeIssueForm(); }
 
 function setIssueLoc(loc) {
@@ -1972,18 +1986,113 @@ function setIssuePriority(p) {
     }
 }
 
+// ── ISSUE PHOTOS (mirrors the task photo flow; shares the task-photos bucket) ──
+function renderIssuePhotos() {
+    const slots = issueFormPhotos.map((p, i) => `
+        <div style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0">
+            <img src="${escHtml(p.url)}" style="width:100%;height:100%;object-fit:cover;display:block">
+            <button type="button" onclick="removeIssuePhoto(${i})" title="Remove"
+                style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:.7rem;line-height:1;cursor:pointer">✕</button>
+        </div>`).join('');
+    const addSlot = issueFormPhotos.length < 3
+        ? `<button type="button" onclick="document.getElementById('i-photo-input').click()"
+            style="width:64px;height:64px;border-radius:10px;border:2px dashed var(--clean);background:#fff;color:var(--text-light);font-size:1.5rem;cursor:pointer;flex-shrink:0">+</button>`
+        : '';
+    document.getElementById('i-photos').innerHTML = slots + addSlot;
+}
+
+async function onIssuePhotoPick(input) {
+    const files = Array.from(input.files || []);
+    input.value = '';
+    const room = 3 - issueFormPhotos.length;
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} allowed (max 3)`, 'e');
+    for (const file of files.slice(0, room)) {
+        try {
+            const blob = await compressImage(file);
+            issueFormPhotos.push({ url: URL.createObjectURL(blob), blob, isNew: true });
+            renderIssuePhotos();
+        } catch (err) {
+            console.warn('Photo compress failed:', err.message);
+            toast('Could not process that photo', 'e');
+        }
+    }
+}
+
+function removeIssuePhoto(i) {
+    const p = issueFormPhotos[i];
+    if (!p) return;
+    // Defer the actual storage delete until Save — same reasoning as task photos.
+    if (!p.isNew && p.path) issueFormPhotosToDelete.push(p.path);
+    if (p.isNew && p.url) URL.revokeObjectURL(p.url);
+    issueFormPhotos.splice(i, 1);
+    renderIssuePhotos();
+}
+
+function discardIssueFormPhotos() {
+    issueFormPhotos.forEach(p => { if (p.isNew && p.url) URL.revokeObjectURL(p.url); });
+    issueFormPhotos = [];
+    issueFormPhotosToDelete = [];
+}
+
+async function uploadOneIssuePhoto(issueId, p, i) {
+    if (!p.isNew) return { path: p.path, url: p.url };
+    if (!sbClient) { toast('Photos need Supabase connected — issue saved without new photos', 'e'); return null; }
+    const path = `${issueId}/${Date.now().toString(36)}-${i}.jpg`;
+    try {
+        const { error } = await sbClient.storage.from('task-photos').upload(path, p.blob, { contentType: 'image/jpeg' });
+        if (error) throw error;
+        const { data } = sbClient.storage.from('task-photos').getPublicUrl(path);
+        URL.revokeObjectURL(p.url);
+        return { path, url: data.publicUrl };
+    } catch (err) {
+        console.warn('Photo upload failed:', err.message);
+        toast('A photo failed to upload', 'e');
+        return null;
+    }
+}
+
+async function uploadPendingIssuePhotos(issueId) {
+    const uploaded = await Promise.all(issueFormPhotos.map((p, i) => uploadOneIssuePhoto(issueId, p, i)));
+    if (sbClient && issueFormPhotosToDelete.length) {
+        sbClient.storage.from('task-photos').remove(issueFormPhotosToDelete).then(({ error }) => {
+            if (error) console.warn('Photo delete failed:', error.message);
+        });
+    }
+    issueFormPhotosToDelete = [];
+    return uploaded.filter(Boolean);
+}
+
 async function submitIssueForm() {
     if (!issueFormLoc) { toast('Select a location', 'e'); return; }
     const desc = document.getElementById('i-desc').value.trim();
     if (!desc) { toast('Please describe the issue', 'e'); return; }
+    const issueId = editingIssueId || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+
+    const submitBtn = document.getElementById('iov-submit');
+    const prevLabel = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving…';
+    let photos;
+    try {
+        photos = await uploadPendingIssuePhotos(issueId);
+    } catch (err) {
+        console.warn('Photo upload step failed:', err.message);
+        toast('Could not save photos — issue not saved, try again', 'e');
+        return;
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = prevLabel;
+    }
+
     const issues = getIssues();
 
     if (editingIssueId) {
         const idx = issues.findIndex(i => i.id === editingIssueId);
-        if (idx === -1) return;
+        if (idx === -1) { toast('This issue no longer exists — nothing saved', 'e'); closeIssueForm(); return; }
         issues[idx].location    = issueFormLoc;
         issues[idx].description = desc;
         issues[idx].priority    = issueFormPriority;
+        issues[idx].photos      = photos;
         saveIssues(issues);
         if (sbClient) sbClient.from('maintenance_issues').upsert(issues[idx]).then(({ error }) => { if (error) console.warn('Issue update failed:', error.message); });
         closeIssueForm();
@@ -1992,10 +2101,11 @@ async function submitIssueForm() {
         toast('Issue updated!', 'g');
     } else {
         const issue = {
-            id:          Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            id:          issueId,
             location:    issueFormLoc,
             description: desc,
             priority:    issueFormPriority,
+            photos,
             created_at:  new Date().toISOString(),
             resolved:    false,
             notified:    false,
@@ -2036,11 +2146,20 @@ function resolveIssue(id) {
     showConfirm('Resolve issue?', 'Mark this issue as fixed and remove it from the open list.', 'Resolve', () => {
         const issues = getIssues();
         const idx = issues.findIndex(i => i.id === id);
-        if (idx !== -1) issues[idx].resolved = true;
+        if (idx === -1) return;
+        const photosToDelete = issues[idx].photos || [];
+        issues[idx].resolved = true;
+        issues[idx].photos   = []; // resolved issues don't keep their photos, to save storage
         saveIssues(issues);
         if (sbClient) {
-            sbClient.from('maintenance_issues').update({ resolved: true }).eq('id', id)
+            sbClient.from('maintenance_issues').update({ resolved: true, photos: [] }).eq('id', id)
                 .then(({ error }) => { if (error) console.warn('Issue resolve failed:', error.message); });
+            const paths = photosToDelete.map(p => p.path).filter(Boolean);
+            if (paths.length) {
+                sbClient.storage.from('task-photos').remove(paths).then(({ error }) => {
+                    if (error) console.warn('Photo delete on resolve failed:', error.message);
+                });
+            }
         }
         if (currentTab === 'tasks') renderTasks();
         if (currentTab === 'home')  renderHome();
@@ -2055,12 +2174,17 @@ function issueItemHTML(issue) {
     const date    = new Date(issue.created_at).toLocaleString('en-AU', {
         timeZone: 'Australia/Sydney', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit'
     });
+    const photosHTML = (issue.photos && issue.photos.length)
+        ? `<div style="display:flex;gap:6px;margin-top:8px">${issue.photos.map(p =>
+            `<img src="${escHtml(p.url)}" onclick="openPhotoViewer(this.src)" style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer">`).join('')}</div>`
+        : '';
     return `<div class="issue-item">
         <div class="issue-dot ${urgent ? 'urgent' : 'normal'}"></div>
         <div class="issue-info">
             <span class="issue-badge ${urgent ? 'urgent' : 'normal'}">${urgent ? 'Urgent' : 'Normal'}</span>
             <div class="issue-loc">${escHtml(locName)}</div>
             <div class="issue-desc">${escHtml(issue.description)}</div>
+            ${photosHTML}
             <div class="issue-meta">${date}</div>
         </div>
         <div style="display:flex;align-items:center;gap:4px">

@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.maintenance_issues (
     location    text NOT NULL,
     description text NOT NULL DEFAULT '',
     priority    text NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
+    photos      jsonb NOT NULL DEFAULT '[]',
     created_at  timestamptz DEFAULT now(),
     resolved    boolean NOT NULL DEFAULT false,
     notified    boolean NOT NULL DEFAULT false
@@ -148,12 +149,16 @@ CREATE POLICY "app_delete_task_photos" ON storage.objects
     USING (bucket_id = 'task-photos');
 
 -- ── UPGRADE EXISTING INSTALLATION ────────────────────────────────────────────
--- Run these now on the live Supabase project — required for the tasks
--- audience split (Angelica vs Angus & Jenna):
+-- Run this now on the live Supabase project — required for issue photos
+-- (reuses the existing task-photos bucket/policies, no new bucket needed):
 
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS assigned_to text NOT NULL DEFAULT 'angelica';
-ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_assigned_to_check;
-ALTER TABLE public.tasks ADD CONSTRAINT tasks_assigned_to_check CHECK (assigned_to IN ('angelica', 'owners'));
+ALTER TABLE public.maintenance_issues ADD COLUMN IF NOT EXISTS photos jsonb NOT NULL DEFAULT '[]';
+
+-- Already applied (kept for reference — tasks audience split, now retired
+-- since tasks are always Angelica's; the column stays but is unused):
+-- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS assigned_to text NOT NULL DEFAULT 'angelica';
+-- ALTER TABLE public.tasks DROP CONSTRAINT IF EXISTS tasks_assigned_to_check;
+-- ALTER TABLE public.tasks ADD CONSTRAINT tasks_assigned_to_check CHECK (assigned_to IN ('angelica', 'owners'));
 
 -- Already applied (kept for reference — task photos):
 -- ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS photos jsonb NOT NULL DEFAULT '[]';

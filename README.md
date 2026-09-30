@@ -14,7 +14,7 @@ A single-file mobile PWA for managing an Airbnb cleaning operation — used by o
 ## Backend
 
 - **Supabase** — data storage (hours, schedule, tasks, maintenance issues), credentials configured in app settings
-- **Supabase Storage** — the `task-photos` bucket, for photos attached to tasks (up to 3 per task)
+- **Supabase Storage** — the `task-photos` bucket, for photos attached to tasks or maintenance issues (up to 3 per item)
 - **Gmail (nodemailer)** — outbound email reports
 - **Google Calendar API** — cleaning block sync
 
