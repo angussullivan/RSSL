@@ -223,14 +223,10 @@
         .issue-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:6px;background:var(--warn)}
         .issue-dot.urgent{background:var(--danger)}.issue-dot.normal{background:var(--warn)}
         .issue-info{flex:1;min-width:0}
-        .issue-title{font-size:.88rem;font-weight:600;color:var(--text)}
         .issue-loc{font-size:.75rem;font-weight:700;color:var(--text-light);text-transform:uppercase;letter-spacing:.8px}
         .issue-desc{font-size:.88rem;color:var(--text);margin-top:3px;line-height:1.4}
         .issue-meta{font-size:.72rem;color:var(--text-light);margin-top:2px}
         .issue-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:.65rem;font-weight:700;margin-right:4px}
-        .issue-badge.low{background:#f0f0f0;color:#666}
-        .issue-badge.medium{background:#fef3e2;color:var(--warn)}
-        .issue-badge.high{background:#fde8e8;color:var(--danger)}
         .issue-badge.urgent{background:#fde8e8;color:var(--danger)}.issue-badge.normal{background:#fef3e2;color:var(--warn)}
         .rbtn{width:32px;height:32px;border-radius:9px;background:#e6f9ef;border:none;color:var(--success);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent}
         .pri-btn{flex:1;padding:11px;border-radius:12px;border:2.5px solid var(--clean);background:#fff;font-family:inherit;font-size:.88rem;font-weight:700;color:var(--text-light);cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
@@ -474,6 +470,13 @@
         <div class="ssec">
             <label class="slbl">Location</label>
             <div id="i-locs" style="display:flex;flex-direction:column;gap:9px"></div>
+        </div>
+        <div class="ssec">
+            <label class="slbl">Assigned to</label>
+            <div class="pbtn-row">
+                <button class="pbtn sel" id="iab-Angus" onclick="setIssueAssignedTo('Angus')">Angus</button>
+                <button class="pbtn" id="iab-Jenna" onclick="setIssueAssignedTo('Jenna')">Jenna</button>
+            </div>
         </div>
         <div class="ssec">
             <label class="slbl">Priority</label>
@@ -1937,6 +1940,7 @@ function saveIssues(issues) { localStorage.setItem('ch_issues', JSON.stringify(i
 
 let issueFormLoc      = null;
 let issueFormPriority = 'normal';
+let issueFormAssignedTo = 'Angus';
 let editingIssueId    = null;
 let issueFormPhotos   = []; // { url, path, isNew, blob }
 let issueFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
@@ -1945,8 +1949,9 @@ let issueFormSaving = false; // true while submitIssueForm's photo upload is in 
 function openIssueForm(id = null) {
     editingIssueId = id;
     const issue = id ? getIssues().find(i => i.id === id) : null;
-    issueFormLoc      = issue ? issue.location : null;
-    issueFormPriority = issue ? issue.priority : 'normal';
+    issueFormLoc        = issue ? issue.location : null;
+    issueFormPriority   = issue ? issue.priority : 'normal';
+    issueFormAssignedTo = issue ? (issue.assigned_to || 'Angus') : 'Angus';
     document.getElementById('i-locs').innerHTML = LOCS.map(l => `
         <button class="lbtn${issue && issue.location === l.id ? ' sel' : ''}" id="ilbtn-${l.id}" onclick="setIssueLoc('${l.id}')">
             <div class="lic ${l.cls}">${locIcon(l.id)}</div>
@@ -1954,6 +1959,7 @@ function openIssueForm(id = null) {
         </button>`).join('');
     document.getElementById('i-desc').value = issue ? issue.description : '';
     setIssuePriority(issueFormPriority);
+    setIssueAssignedTo(issueFormAssignedTo);
     document.getElementById('iov-title').textContent  = issue ? 'Edit Issue'    : 'Report an Issue';
     document.getElementById('iov-submit').textContent = issue ? 'Save Changes'  : 'Submit Report';
     issueFormPhotos = (issue?.photos || []).map(p => ({ url: p.url, path: p.path, isNew: false }));
@@ -1977,6 +1983,14 @@ function setIssueLoc(loc) {
     LOCS.forEach(l => {
         const btn = document.getElementById(`ilbtn-${l.id}`);
         if (btn) btn.classList.toggle('sel', l.id === loc);
+    });
+}
+
+function setIssueAssignedTo(who) {
+    issueFormAssignedTo = who;
+    ['Angus','Jenna'].forEach(w => {
+        const b = document.getElementById(`iab-${w}`);
+        if (b) b.classList.toggle('sel', w === who);
     });
 }
 
@@ -2101,10 +2115,11 @@ async function submitIssueForm() {
     if (wasEditingId) {
         const idx = issues.findIndex(i => i.id === wasEditingId);
         if (idx === -1) { toast('This issue no longer exists — nothing saved', 'e'); closeIssueForm(); return; }
-        issues[idx].location    = issueFormLoc;
-        issues[idx].description = desc;
-        issues[idx].priority    = issueFormPriority;
-        issues[idx].photos      = photos;
+        issues[idx].location     = issueFormLoc;
+        issues[idx].description  = desc;
+        issues[idx].priority     = issueFormPriority;
+        issues[idx].assigned_to  = issueFormAssignedTo;
+        issues[idx].photos       = photos;
         saveIssues(issues);
         if (sbClient) sbClient.from('maintenance_issues').upsert(issues[idx]).then(({ error }) => { if (error) console.warn('Issue update failed:', error.message); });
         closeIssueForm();
@@ -2113,14 +2128,15 @@ async function submitIssueForm() {
         toast('Issue updated!', 'g');
     } else {
         const issue = {
-            id:          issueId,
-            location:    issueFormLoc,
-            description: desc,
-            priority:    issueFormPriority,
+            id:           issueId,
+            location:     issueFormLoc,
+            description:  desc,
+            priority:     issueFormPriority,
+            assigned_to:  issueFormAssignedTo,
             photos,
-            created_at:  new Date().toISOString(),
-            resolved:    false,
-            notified:    false,
+            created_at:   new Date().toISOString(),
+            resolved:     false,
+            notified:     false,
         };
         issues.unshift(issue);
         saveIssues(issues);
@@ -2128,8 +2144,8 @@ async function submitIssueForm() {
         const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
         const locName = locMap[issue.location] || issue.location;
         const urgent  = issue.priority === 'urgent';
-        const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue — ${locName}`;
-        const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
+        const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue for ${issue.assigned_to} — ${locName}`;
+        const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nAssigned to: ${issue.assigned_to}\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
         const sent = await dispatchEmailSilent(subject, body);
         closeIssueForm();
         if (currentTab === 'tasks') renderTasks();
@@ -2190,10 +2206,12 @@ function issueItemHTML(issue) {
         ? `<div style="display:flex;gap:6px;margin-top:8px">${issue.photos.map(p =>
             `<img src="${escHtml(p.url)}" onclick="openPhotoViewer(this.src)" style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer">`).join('')}</div>`
         : '';
+    const assignedTo = issue.assigned_to || 'Angus';
     return `<div class="issue-item">
         <div class="issue-dot ${urgent ? 'urgent' : 'normal'}"></div>
         <div class="issue-info">
             <span class="issue-badge ${urgent ? 'urgent' : 'normal'}">${urgent ? 'Urgent' : 'Normal'}</span>
+            <span class="issue-badge" style="background:#eef2ff;color:#4c4ed8">${escHtml(assignedTo)}</span>
             <div class="issue-loc">${escHtml(locName)}</div>
             <div class="issue-desc">${escHtml(issue.description)}</div>
             ${photosHTML}

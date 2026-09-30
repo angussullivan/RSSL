@@ -320,11 +320,13 @@ function buildMaintenanceAlert(issues) {
         const reported = new Date(issue.created_at).toLocaleString('en-AU', {
             timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short'
         });
+        const assignedTo = issue.assigned_to || 'Angus';
         return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
             <div style="margin-bottom:5px">
                 ${urgent
                     ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>`
                     : `<span style="background:#f0f0f0;color:#666;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">Normal</span>`}
+                <span style="background:#eef2ff;color:#4c4ed8;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">${escHtml(assignedTo)}</span>
                 <span style="font-size:0.8rem;color:#888;margin-left:6px">${escHtml(locName)}</span>
             </div>
             <div style="font-size:0.92rem;color:#2C3E50;line-height:1.45">${escHtml(issue.description)}</div>
