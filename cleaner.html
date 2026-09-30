@@ -405,17 +405,6 @@
     </div>
 </div>
 
-<!-- Add task / report issue chooser -->
-<div class="sov" id="addChooserOv" onclick="closeAddChooserIfBg(event)">
-    <div class="ssheet">
-        <div class="shandle"></div>
-        <div class="stitle">What would you like to add?</div>
-        <button class="btn1" onclick="closeAddChooser(); openAddTaskForm()">+ Add Task</button>
-        <button class="btn2" onclick="closeAddChooser(); openIssueForm()">Report an Issue</button>
-        <button class="btn2" onclick="closeAddChooser()">Cancel</button>
-    </div>
-</div>
-
 <!-- Add task overlay -->
 <div class="sov" id="tov" onclick="closeAddTaskFormIfBg(event)">
     <div class="ssheet">
@@ -2183,16 +2172,21 @@ function renderTasks() {
             <button onclick="setTaskAudience('owners')" style="flex:1;padding:8px 0;border-radius:9px;border:none;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;${taskAudience==='owners'?'background:#fff;color:var(--ocean);box-shadow:0 1px 5px rgba(0,0,0,.1)':'background:transparent;color:var(--text-light)'}">Angus &amp; Jenna</button>
         </div>`;
 
+    // Angelica's tab is for assigning her a task; the Angus & Jenna tab is
+    // for logging an issue that needs their attention — the button's action
+    // and the form it opens follow whichever tab is active.
+    const addBtnLabel = taskAudience === 'angelica' ? '+ Add Task' : '+ Report an Issue';
+
     document.getElementById('tab-tasks').innerHTML = `
         <div class="card">
-            <button class="btn1" onclick="openAddChooser()">+ Add Task or Report an Issue</button>
+            ${audienceToggle}
+            <button class="btn1" onclick="openTailoredAddForm()">${addBtnLabel}</button>
         </div>
         <div class="card">
             <div class="row-bet" style="margin-bottom:12px">
                 <span class="card-lbl" style="margin:0">Tasks</span>
                 ${totalOpen > 0 ? `<span class="badge r">${totalOpen} open</span>` : ''}
             </div>
-            ${audienceToggle}
             ${openHTML}
             ${doneHTML}
         </div>
@@ -2236,9 +2230,10 @@ function taskItemHTML(task) {
     </div>`;
 }
 
-function openAddChooser() { document.getElementById('addChooserOv').classList.add('on'); }
-function closeAddChooser() { document.getElementById('addChooserOv').classList.remove('on'); }
-function closeAddChooserIfBg(e) { if (e.target === document.getElementById('addChooserOv')) closeAddChooser(); }
+function openTailoredAddForm() {
+    if (taskAudience === 'angelica') openAddTaskForm();
+    else openIssueForm();
+}
 
 function openAddTaskForm(id = null) {
     editingTaskId = id;
