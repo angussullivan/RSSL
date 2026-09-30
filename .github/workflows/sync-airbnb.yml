@@ -2,7 +2,7 @@ name: Sync Airbnb Calendar
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # every 2 hours (UTC)
+    - cron: '0 * * * *'  # every hour (UTC)
   workflow_dispatch:
 
 jobs:
