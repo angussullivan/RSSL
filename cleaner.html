@@ -2118,22 +2118,29 @@ function setTaskAudience(who) {
 
 const TASK_PRIORITY_ORDER = { urgent: 0, normal: 1, low: 2 };
 
-// Groups tasks by property (in LOCS order, then anything with no property
-// set last), and within each property group orders urgent → normal → low.
-function groupedOpenTasksHTML(tasks) {
-    if (tasks.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
-    const groups = LOCS.map(l => ({ id: l.id, label: l.name, tasks: [] }));
-    const other  = { id: null, label: 'Other', tasks: [] };
-    tasks.forEach(t => {
-        (groups.find(g => g.id === t.location) || other).tasks.push(t);
+// Groups Angelica's open tasks AND open maintenance issues together by
+// property (in LOCS order, then anything with no property set last), and
+// within each property group orders urgent → normal → low. Each item only
+// ever appears once, in the one group its own location puts it in.
+function groupedOpenTasksHTML(tasks, issues) {
+    const combined = [
+        ...tasks.map(t => ({ item: t, kind: 'task' })),
+        ...issues.map(i => ({ item: i, kind: 'issue' })),
+    ];
+    if (combined.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks or issues</p></div>`;
+    const groups = LOCS.map(l => ({ id: l.id, label: l.name, entries: [] }));
+    const other  = { id: null, label: 'Other', entries: [] };
+    combined.forEach(entry => {
+        (groups.find(g => g.id === entry.item.location) || other).entries.push(entry);
     });
     return [...groups, other]
-        .filter(g => g.tasks.length > 0)
+        .filter(g => g.entries.length > 0)
         .map(g => {
-            const sorted = g.tasks.slice().sort((a, b) =>
-                (TASK_PRIORITY_ORDER[a.priority] ?? 1) - (TASK_PRIORITY_ORDER[b.priority] ?? 1));
+            const sorted = g.entries.slice().sort((a, b) =>
+                (TASK_PRIORITY_ORDER[a.item.priority] ?? 1) - (TASK_PRIORITY_ORDER[b.item.priority] ?? 1));
+            const rows = sorted.map(e => e.kind === 'issue' ? issueItemHTML(e.item) : taskItemHTML(e.item)).join('');
             return `<div class="done-toggle" style="margin-top:14px">${escHtml(g.label)}</div>
-                <div style="margin-top:8px">${sorted.map(taskItemHTML).join('')}</div>`;
+                <div style="margin-top:8px">${rows}</div>`;
         }).join('');
 }
 
@@ -2154,21 +2161,20 @@ function renderTasks() {
     const openTasks = allTasks.filter(t => t.status === 'open');
     // The 2-day purge only runs during a Supabase sync, so this stays capped
     // defensively in case a device has been offline a while.
-    const doneTasks = allTasks.filter(t => t.status === 'completed').slice(0, 15);
-    const issues    = getIssues().filter(i => !i.resolved);
+    const doneTasks  = allTasks.filter(t => t.status === 'completed').slice(0, 15);
+    // Maintenance issues live only on Angelica's tab — she's the one who
+    // reports them, and there's no owner/cleaner split for issues.
+    const openIssues = taskAudience === 'angelica' ? getIssues().filter(i => !i.resolved) : [];
+    const totalOpen   = openTasks.length + openIssues.length;
 
     const openHTML = taskAudience === 'angelica'
-        ? groupedOpenTasksHTML(openTasks)
+        ? groupedOpenTasksHTML(openTasks, openIssues)
         : groupedByUrgencyHTML(openTasks);
 
     const doneHTML = doneTasks.length > 0
         ? `<div class="done-toggle" style="margin-top:14px">Completed (recent)</div>
            <div style="margin-top:8px">${doneTasks.map(taskItemHTML).join('')}</div>`
         : '';
-
-    const issuesHTML = issues.length > 0
-        ? issues.slice(0, 10).map(issueItemHTML).join('')
-        : `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
 
     const audienceToggle = `
         <div style="display:flex;background:#eef1f5;border-radius:12px;padding:3px;margin-bottom:14px">
@@ -2183,18 +2189,11 @@ function renderTasks() {
         <div class="card">
             <div class="row-bet" style="margin-bottom:12px">
                 <span class="card-lbl" style="margin:0">Tasks</span>
-                ${openTasks.length > 0 ? `<span class="badge r">${openTasks.length} open</span>` : ''}
+                ${totalOpen > 0 ? `<span class="badge r">${totalOpen} open</span>` : ''}
             </div>
             ${audienceToggle}
             ${openHTML}
             ${doneHTML}
-        </div>
-        <div class="card">
-            <div class="row-bet" style="margin-bottom:12px">
-                <span class="card-lbl" style="margin:0">Maintenance Issues</span>
-                ${issues.length > 0 ? `<span class="badge r">${issues.length} open</span>` : ''}
-            </div>
-            ${issuesHTML}
         </div>
     `;
 }
