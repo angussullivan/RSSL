@@ -741,7 +741,30 @@ async function syncFromSupabase() {
                     if (te) console.warn('Task upsert failed:', te.message);
                 });
             }
-            saveTasks([...remoteTasks, ...localOnlyTasks].sort((a, b) =>
+            const merged = [...remoteTasks, ...localOnlyTasks];
+
+            // Completed tasks stick around (struck through) for 2 days, then are purged for good.
+            // Skip anything still being upserted this pass, so a delete can't race an in-flight
+            // insert for the same id — it'll just get purged on the next sync instead.
+            const localOnlyIds = new Set(localOnlyTasks.map(t => t.id));
+            const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+            const expired = merged.filter(t =>
+                !localOnlyIds.has(t.id) &&
+                t.status === 'completed' && t.completed_at && new Date(t.completed_at).getTime() < twoDaysAgo);
+            if (expired.length > 0) {
+                const photoPaths = expired.flatMap(t => (t.photos || []).map(p => p.path).filter(Boolean));
+                if (photoPaths.length > 0) {
+                    sbClient.storage.from('task-photos').remove(photoPaths).then(({ error: se }) => {
+                        if (se) console.warn('Expired task photo delete failed:', se.message);
+                    });
+                }
+                sbClient.from('tasks').delete().in('id', expired.map(t => t.id)).then(({ error: pe }) => {
+                    if (pe) console.warn('Task purge failed:', pe.message);
+                });
+            }
+            const expiredIds = new Set(expired.map(t => t.id));
+
+            saveTasks(merged.filter(t => !expiredIds.has(t.id)).sort((a, b) =>
                 new Date(b.created_at) - new Date(a.created_at)));
             if (pinUnlocked && currentTab === 'tasks') renderTasks();
         }
