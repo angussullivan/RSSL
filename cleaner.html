@@ -2141,32 +2141,10 @@ async function submitIssueForm() {
         issues.unshift(issue);
         saveIssues(issues);
         if (sbClient) sbClient.from('maintenance_issues').insert(issue).then(({ error }) => { if (error) console.warn('Issue insert failed:', error.message); });
-        const locMap  = Object.fromEntries(LOCS.map(l => [l.id, `${l.sub} ${l.name}`]));
-        const locName = locMap[issue.location] || issue.location;
-        const urgent  = issue.priority === 'urgent';
-        const subject = `${urgent ? '[URGENT] ' : ''}Maintenance Issue for ${issue.assigned_to} — ${locName}`;
-        const body    = `A maintenance issue has been reported via the Hours Tracker app.\n\nAssigned to: ${issue.assigned_to}\nLocation: ${locName}\nPriority: ${urgent ? 'URGENT' : 'Normal'}\nReported: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}\n\nDescription:\n${desc}`;
-        const sent = await dispatchEmailSilent(subject, body);
         closeIssueForm();
         if (currentTab === 'tasks') renderTasks();
         if (currentTab === 'home')  renderHome();
-        toast(sent ? 'Issue reported — owners notified' : 'Issue saved — owners notified tonight', 'g');
-    }
-}
-
-async function dispatchEmailSilent(subject, body) {
-    const s = getSettings();
-    const recips = s.recipients.filter(r => r && r.trim());
-    if (!recips.length) return false;
-    const { publicKey, serviceId, templateId } = s.emailJS;
-    if (!publicKey || !serviceId || !templateId) return false;
-    try {
-        for (const to of recips)
-            await emailjs.send(serviceId, templateId, { to_email: to, subject, message: body });
-        return true;
-    } catch(err) {
-        console.error('EmailJS silent send failed:', err);
-        return false;
+        toast('Issue reported!', 'g');
     }
 }
 

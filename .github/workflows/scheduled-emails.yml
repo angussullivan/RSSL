@@ -1,8 +1,9 @@
 name: Scheduled Email Reports
 
 on:
-  # Triggered externally by cron-job.org at 9pm and 9:15pm Sydney time.
-  # GitHub's internal scheduler is not used — it silently skips on inactive repos.
+  # Triggered externally by cron-job.org at 7pm (type=reminder) and 8pm
+  # (type=daily) Sydney time. GitHub's internal scheduler is not used — it
+  # silently skips on inactive repos.
   workflow_dispatch:
     inputs:
       type:

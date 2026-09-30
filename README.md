@@ -6,9 +6,9 @@ A single-file mobile PWA for managing an Airbnb cleaning operation — used by o
 
 - `cleaner.html` — the app (frontend + logic in one file)
 - `supabase-setup.sql` — database schema
-- `.github/scripts/send-emails.js` — nightly email reports (daily summary + no-hours reminder)
-- `.github/scripts/sync-airbnb.js` — syncs Airbnb iCal feeds into Supabase every 2 hours
-- `.github/scripts/sync-calendar.js` — syncs cleaning blocks to Google Calendar every 2 hours
+- `.github/scripts/send-emails.js` — evening email reports (7pm no-hours reminder, 8pm daily/weekly/monthly summary)
+- `.github/scripts/sync-airbnb.js` — syncs Airbnb iCal feeds into Supabase hourly; also sends an alert email if a booking checking in within 24h changes
+- `.github/scripts/sync-calendar.js` — syncs cleaning blocks to Google Calendar hourly
 - `.github/workflows/` — GitHub Actions for the above
 
 ## Backend

@@ -25,46 +25,6 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-function buildMaintenanceAlertEmail(issues) {
-    const LOCS_MAP = { airbnb: 'Reservoir St Airbnb Rooms', laundry: 'Reservoir St Laundry', tamarama: 'Tamarama Home' };
-    const rows = issues.map(issue => {
-        const locName  = LOCS_MAP[issue.location] || issue.location;
-        const urgent   = issue.priority === 'urgent';
-        const reported = new Date(issue.created_at).toLocaleString('en-AU', {
-            timeZone: 'Australia/Sydney', dateStyle: 'medium', timeStyle: 'short'
-        });
-        return `<tr><td style="padding:12px 0;border-bottom:1px solid #f5f5f5">
-            <div style="margin-bottom:5px">
-                ${urgent
-                    ? `<span style="background:#E74C3C;color:#fff;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">URGENT</span>`
-                    : `<span style="background:#f0f0f0;color:#666;padding:2px 8px;border-radius:100px;font-size:0.72rem;font-weight:700">Normal</span>`}
-                <span style="font-size:0.8rem;color:#888;margin-left:6px">${escHtml(locName)}</span>
-            </div>
-            <div style="font-size:0.92rem;color:#2C3E50;line-height:1.45">${escHtml(issue.description)}</div>
-            <div style="font-size:0.75rem;color:#aaa;margin-top:4px">${reported}</div>
-        </td></tr>`;
-    }).join('');
-    const title = `Maintenance Issue${issues.length > 1 ? 's' : ''} Reported`;
-    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
-  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
-    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">${title}</h2>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
-  </div>
-  <div style="padding:24px 28px">
-    <p style="color:#2C3E50;margin-bottom:16px">The following maintenance issue${issues.length > 1 ? 's have' : ' has'} been flagged:</p>
-    <table style="width:100%;border-collapse:collapse">${rows}</table>
-    <p style="text-align:center;margin-top:20px">
-      <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
-         style="display:inline-block;background:#1B4965;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.95rem">Open App →</a>
-    </p>
-  </div>
-  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:0.72rem;color:#aaa;text-align:center">
-    Sent automatically by Hours Tracker · <a href="https://angussullivan.github.io/cleaner-app/cleaner.html" style="color:#62B6CB">Open app</a>
-  </div>
-</div></body></html>`;
-}
-
 function parseDate(s) {
     return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
 }
@@ -108,40 +68,41 @@ function parseIcal(text) {
 function buildAlertEmail(changes, todayStr, tomorrowStr) {
     const rows = changes.map(c => {
         const b = c.booking;
-        const when = b.checkin === todayStr ? 'Today' : 'Tomorrow';
+        const when = b.checkin === todayStr ? 'TODAY' : 'TOMORROW';
         let badge, detail;
         if (c.type === 'new') {
             badge = `<span style="background:#27AE60;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">NEW BOOKING</span>`;
             detail = `Check-in ${when} (${fmtDate(b.checkin)}) · Check-out ${fmtDate(b.checkout)}`;
         } else if (c.type === 'cancelled') {
-            badge = `<span style="background:#E05C5C;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CANCELLED</span>`;
+            badge = `<span style="background:#C0392B;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CANCELLED</span>`;
             detail = `Was checking in ${when} (${fmtDate(b.checkin)}) · Checking out ${fmtDate(b.checkout)}`;
         } else {
             badge = `<span style="background:#E67E22;color:#fff;padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:700">CHANGED</span>`;
             detail = `Was ${fmtDate(c.previous.checkin)} → ${fmtDate(c.previous.checkout)}<br>Now ${fmtDate(b.checkin)} → ${fmtDate(b.checkout)}`;
         }
-        return `<div style="background:#f8f9fa;border-radius:10px;padding:14px;margin-bottom:10px">
+        return `<div style="background:#fff5f5;border:1px solid #f5c6c6;border-radius:10px;padding:14px;margin-bottom:10px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
                 ${badge}
-                <span style="font-weight:700;color:#1B4965;font-size:0.92rem">${b.room}</span>
+                <span style="font-weight:700;color:#C0392B;font-size:0.92rem">${b.room}</span>
             </div>
             <div style="font-size:0.85rem;color:#5D7285;line-height:1.5">${detail}</div>
         </div>`;
     }).join('');
 
     return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.07)">
-  <div style="background:linear-gradient(135deg,#1B4965,#2d6b8a);padding:22px 28px">
-    <h2 style="margin:0;color:#fff;font-size:1.05rem;font-weight:700">⚠️ Airbnb Calendar Change — Imminent Check-in</h2>
-    <p style="margin:4px 0 0;color:rgba(255,255,255,0.6);font-size:0.8rem">Hours Tracker · Reservoir St &amp; Tamarama</p>
+<div style="max-width:580px;margin:24px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 16px rgba(192,57,43,0.25);border:2px solid #E74C3C">
+  <div style="background:linear-gradient(135deg,#C0392B,#E74C3C);padding:22px 28px">
+    <div style="display:inline-block;background:rgba(255,255,255,0.25);color:#fff;padding:4px 12px;border-radius:100px;font-size:0.72rem;font-weight:800;letter-spacing:0.6px;margin-bottom:8px">🚨 ACTION NEEDED</div>
+    <h2 style="margin:0;color:#fff;font-size:1.15rem;font-weight:800">Airbnb Check-in Changed — Within 24 Hours</h2>
+    <p style="margin:4px 0 0;color:rgba(255,255,255,0.85);font-size:0.82rem">A guest arrival is changing very soon — please check now</p>
   </div>
   <div style="padding:24px 28px">
-    <p style="color:#5D7285;margin-top:0">A booking has changed for a guest arriving within the next 24 hours:</p>
+    <p style="color:#C0392B;font-weight:700;margin-top:0">A booking has changed for a guest arriving within the next 24 hours:</p>
     ${rows}
     <p style="margin-top:16px;text-align:center">
         <a href="https://angussullivan.github.io/cleaner-app/cleaner.html"
-           style="display:inline-block;background:#1B4965;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.9rem">
-           View Schedule →
+           style="display:inline-block;background:#C0392B;color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:800;font-size:0.95rem">
+           View Schedule Now →
         </a>
     </p>
   </div>
@@ -248,10 +209,14 @@ async function main() {
     if (changes.length > 0) {
         console.log(`${changes.length} change(s) detected for imminent check-ins — sending alert`);
         if (transport) {
+            const hasCancellation = changes.some(c => c.type === 'cancelled');
+            const subject = hasCancellation
+                ? `🚨 URGENT: Airbnb booking CANCELLED — guest was arriving within 24h`
+                : `🚨 URGENT: Airbnb check-in changed — action needed within 24h`;
             await transport.sendMail({
                 from:    `"Hours Tracker" <${GMAIL_USER}>`,
                 to:      EVERYONE.join(', '),
-                subject: `⚠️ Airbnb calendar change — guest arriving within 24h`,
+                subject,
                 html:    buildAlertEmail(changes, todayStr, tomorrowStr),
             });
             console.log('  Alert email sent');
@@ -293,31 +258,6 @@ async function main() {
     }
 
     console.log(`Done — ${allBookings.length} booking(s) synced across ${successfulRooms.size}/${ROOMS.length} room(s)`);
-
-    // Maintenance alert — also handled by send-emails.js at 9:30pm; this provides faster (2h) notification
-    if (transport) {
-        const { data: newIssues } = await supabase
-            .from('maintenance_issues')
-            .select('*')
-            .eq('notified', false)
-            .eq('resolved', false);
-
-        if (newIssues && newIssues.length > 0) {
-            console.log(`Sending maintenance alert for ${newIssues.length} unnotified issue(s)`);
-            await transport.sendMail({
-                from:    `"Hours Tracker" <${GMAIL_USER}>`,
-                to:      EVERYONE.join(', '),
-                subject: `Maintenance Issue${newIssues.length > 1 ? 's' : ''} Reported — ${newIssues.length} item${newIssues.length > 1 ? 's' : ''}`,
-                html:    buildMaintenanceAlertEmail(newIssues),
-            });
-            const { error: notifyErr } = await supabase
-                .from('maintenance_issues')
-                .update({ notified: true })
-                .in('id', newIssues.map(i => i.id));
-            if (notifyErr) console.warn('Failed to mark issues notified:', notifyErr.message);
-            else console.log('  Maintenance alert sent and issues marked notified');
-        }
-    }
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1); });
