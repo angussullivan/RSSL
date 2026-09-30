@@ -2,7 +2,7 @@ name: Sync Cleaning Calendar
 
 on:
   schedule:
-    - cron: '30 */2 * * *'  # every 2 hours, offset 30min from sync-airbnb
+    - cron: '30 * * * *'  # every hour, offset 30min from sync-airbnb
   workflow_dispatch:
 
 jobs:
