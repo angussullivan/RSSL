@@ -102,6 +102,17 @@ function getWeekDates(dateStr) {
 
 function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 
+// Sydney midnight (start of the given local date) as a UTC ISO timestamp —
+// used to bound "completed_at" queries by Sydney-local days rather than UTC ones.
+const secsSinceSydneyMidnightNow = sydneyNow.getHours() * 3600 + sydneyNow.getMinutes() * 60 + sydneyNow.getSeconds();
+const todayMidnightUTCms = Date.now() - secsSinceSydneyMidnightNow * 1000;
+function sydneyMidnightUTC(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const [ty, tm, td] = todayStr.split('-').map(Number);
+    const daysDiff = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000);
+    return new Date(todayMidnightUTCms + daysDiff * 86400000).toISOString();
+}
+
 // ── EMAIL TEMPLATE WRAPPER ───────────────────────────────────
 function wrap(title, body) {
     return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f7f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
@@ -188,7 +199,7 @@ function buildDailySummary(entries, completedTasks = []) {
     return wrap(`Daily Summary — ${date}`, `<p style="color:#5D7285;margin-top:0">${date}</p>${body}${tasksSection}`);
 }
 
-function buildWeeklySummary(entries, weekDates) {
+function buildWeeklySummary(entries, weekDates, completedTasks = []) {
     const total = entries.reduce((a, e) => a + parseFloat(e.hours), 0);
     const delta = total - WEEKLY_TARGET;
     const deltaColor = delta >= 0 ? '#27AE60' : Math.abs(delta) <= 3 ? '#E67E22' : '#E74C3C';
@@ -222,6 +233,23 @@ function buildWeeklySummary(entries, weekDates) {
         </tr>`;
     });
 
+    let tasksSection = '';
+    if (completedTasks.length > 0) {
+        const taskRows = completedTasks.map(t => {
+            const completedDate = new Date(t.completed_at).toLocaleString('en-AU', {
+                timeZone: 'Australia/Sydney', weekday: 'short', day: 'numeric', month: 'short'
+            });
+            return `<tr><td style="padding:9px 0;border-bottom:1px solid #f0f0f0">
+                <span style="color:#27AE60;font-size:.7rem;font-weight:700;margin-right:6px">✓</span><span style="color:#2C3E50;font-size:.88rem">${escHtml(t.title)}</span>
+                <span style="color:#aaa;font-size:.75rem;margin-left:4px">(${completedDate})</span>
+                ${t.completion_note ? `<div style="font-size:.78rem;color:#5D7285;font-style:italic;margin-top:2px">"${escHtml(t.completion_note)}"</div>` : ''}
+            </td></tr>`;
+        }).join('');
+        tasksSection = `
+            <p style="font-size:.7rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#aaa;margin:20px 0 6px">Tasks Completed This Week</p>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:8px">${taskRows}</table>`;
+    }
+
     return wrap(`Weekly Summary — ${fmtDate(weekDates[0])}–${fmtDate(weekDates[6])} ${sydneyNow.getFullYear()}`, `
         <table style="width:100%;border-collapse:collapse;margin-bottom:20px">${dayRows}</table>
         ${locRows ? `<table style="width:100%;border-collapse:collapse;margin-bottom:20px">
@@ -236,6 +264,7 @@ function buildWeeklySummary(entries, weekDates) {
             </div>
             ${pill(deltaText, deltaColor)}
         </div>
+        ${tasksSection}
     `);
 }
 
@@ -342,16 +371,11 @@ async function main() {
             .eq('date', todayStr);
         if (e1) throw e1;
 
-        // Compute Sydney midnight as a UTC ISO timestamp so tasks completed before
-        // midnight UTC (but after midnight Sydney) are not excluded.
-        const secsSinceSydneyMidnight =
-            sydneyNow.getHours() * 3600 + sydneyNow.getMinutes() * 60 + sydneyNow.getSeconds();
-        const sydneyMidnightUTC = new Date(Date.now() - secsSinceSydneyMidnight * 1000).toISOString();
         const { data: completedTasksToday, error: taskErr } = await supabase
             .from('tasks')
             .select('*')
             .eq('status', 'completed')
-            .gte('completed_at', sydneyMidnightUTC);
+            .gte('completed_at', sydneyMidnightUTC(todayStr));
         if (taskErr) console.error('Failed to fetch completed tasks:', taskErr.message);
 
         if (!MANUAL_TYPE || MANUAL_TYPE === 'daily') {
@@ -372,11 +396,21 @@ async function main() {
                 .in('date', weekDates);
             if (e2) throw e2;
 
-            console.log(`Sending weekly summary (${weekEntries.length} entries)`);
+            const weekStartUTC = sydneyMidnightUTC(weekDates[0]);
+            const weekEndUTC   = new Date(new Date(weekStartUTC).getTime() + 7 * 86400000).toISOString();
+            const { data: completedTasksWeek, error: taskErr2 } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('status', 'completed')
+                .gte('completed_at', weekStartUTC)
+                .lt('completed_at', weekEndUTC);
+            if (taskErr2) console.error('Failed to fetch completed tasks for week:', taskErr2.message);
+
+            console.log(`Sending weekly summary (${weekEntries.length} entries, ${(completedTasksWeek||[]).length} tasks completed this week)`);
             await send({
                 to: EVERYONE,
                 subject: `Weekly hours summary — ${fmtDate(weekDates[0])}–${fmtDate(weekDates[6])} ${sydneyNow.getFullYear()}`,
-                html: buildWeeklySummary(weekEntries, weekDates),
+                html: buildWeeklySummary(weekEntries, weekDates, completedTasksWeek || []),
             });
         }
 

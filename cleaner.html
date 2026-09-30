@@ -751,14 +751,17 @@ async function syncFromSupabase() {
             }
             const merged = [...remoteTasks, ...localOnlyTasks];
 
-            // Completed tasks stick around (struck through) for 2 days, then are purged for good.
+            // Completed tasks are purged from Supabase after 8 days — long enough that the
+            // weekly email (which reports everything completed since Monday) always still
+            // finds them. The app itself only ever *displays* the last 2 days of them (see
+            // renderTasks), so this longer retention is invisible in the UI.
             // Skip anything still being upserted this pass, so a delete can't race an in-flight
             // insert for the same id — it'll just get purged on the next sync instead.
             const localOnlyIds = new Set(localOnlyTasks.map(t => t.id));
-            const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+            const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
             const expired = merged.filter(t =>
                 !localOnlyIds.has(t.id) &&
-                t.status === 'completed' && t.completed_at && new Date(t.completed_at).getTime() < twoDaysAgo);
+                t.status === 'completed' && t.completed_at && new Date(t.completed_at).getTime() < eightDaysAgo);
             if (expired.length > 0) {
                 const photoPaths = expired.flatMap(t => (t.photos || []).map(p => p.path).filter(Boolean));
                 if (photoPaths.length > 0) {
@@ -2270,9 +2273,13 @@ function renderTasks() {
     // only for whether an item is a task or a maintenance issue.
     const allTasks  = getTasks();
     const openTasks = allTasks.filter(t => t.status === 'open');
-    // The 2-day purge only runs during a Supabase sync, so this stays capped
-    // defensively in case a device has been offline a while.
-    const doneTasks  = allTasks.filter(t => t.status === 'completed').slice(0, 15);
+    // Completed tasks are only kept in Supabase for 8 days (so the weekly email can
+    // still report them), but the app itself should only ever show the last 2 days
+    // of them, capped at 15 defensively in case a device has been offline a while.
+    const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    const doneTasks  = allTasks
+        .filter(t => t.status === 'completed' && t.completed_at && new Date(t.completed_at).getTime() >= twoDaysAgo)
+        .slice(0, 15);
     const openIssues = getIssues().filter(i => !i.resolved);
     const totalOpen   = taskAudience === 'angelica' ? openTasks.length : openIssues.length;
 
