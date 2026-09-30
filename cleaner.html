@@ -405,6 +405,17 @@
     </div>
 </div>
 
+<!-- Add task / report issue chooser -->
+<div class="sov" id="addChooserOv" onclick="closeAddChooserIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">What would you like to add?</div>
+        <button class="btn1" onclick="closeAddChooser(); openAddTaskForm()">+ Add Task</button>
+        <button class="btn2" onclick="closeAddChooser(); openIssueForm()">Report an Issue</button>
+        <button class="btn2" onclick="closeAddChooser()">Cancel</button>
+    </div>
+</div>
+
 <!-- Add task overlay -->
 <div class="sov" id="tov" onclick="closeAddTaskFormIfBg(event)">
     <div class="ssheet">
@@ -2174,7 +2185,6 @@ function renderTasks() {
             ${audienceToggle}
             ${openHTML}
             ${doneHTML}
-            <button class="btn2" style="margin-top:10px" onclick="openAddTaskForm()">+ Add Task</button>
         </div>
         <div class="card">
             <div class="row-bet" style="margin-bottom:12px">
@@ -2182,7 +2192,9 @@ function renderTasks() {
                 ${issues.length > 0 ? `<span class="badge r">${issues.length} open</span>` : ''}
             </div>
             ${issuesHTML}
-            <button class="btn2" style="margin-top:10px" onclick="openIssueForm()">Report an Issue</button>
+        </div>
+        <div class="card">
+            <button class="btn1" onclick="openAddChooser()">+ Add Task or Report an Issue</button>
         </div>
     `;
 }
@@ -2223,6 +2235,10 @@ function taskItemHTML(task) {
         <div style="display:flex;align-items:center">${editBtn}${doneBtn}${reopenBtn}</div>
     </div>`;
 }
+
+function openAddChooser() { document.getElementById('addChooserOv').classList.add('on'); }
+function closeAddChooser() { document.getElementById('addChooserOv').classList.remove('on'); }
+function closeAddChooserIfBg(e) { if (e.target === document.getElementById('addChooserOv')) closeAddChooser(); }
 
 function openAddTaskForm(id = null) {
     editingTaskId = id;
