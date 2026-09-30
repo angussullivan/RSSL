@@ -419,13 +419,6 @@
             <div class="pbtn-row" id="t-locs"></div>
         </div>
         <div class="ssec">
-            <label class="slbl">Assigned to</label>
-            <div class="pbtn-row">
-                <button class="pbtn sel" id="tat-angelica" onclick="setTaskAssignedTo('angelica')">Angelica</button>
-                <button class="pbtn" id="tat-owners" onclick="setTaskAssignedTo('owners')">Angus &amp; Jenna</button>
-            </div>
-        </div>
-        <div class="ssec">
             <label class="slbl">Added by</label>
             <div class="pbtn-row">
                 <button class="pbtn sel" id="tab-Angus" onclick="setTaskAddedBy('Angus')">Angus</button>
@@ -2093,7 +2086,6 @@ function saveTasks(tasks) { localStorage.setItem('ch_tasks', JSON.stringify(task
 let taskAudience      = 'angelica'; // which tab of the Tasks page is showing
 let taskFormPriority  = 'normal';
 let taskFormAddedBy   = 'Angus';
-let taskFormAssignedTo = 'angelica';
 let taskFormLoc       = null;
 let taskFormPhotos   = []; // { url, path, isNew, blob }
 let taskFormPhotosToDelete = []; // paths of removed existing photos, deleted from storage only on Save
@@ -2127,41 +2119,35 @@ function groupedOpenTasksHTML(tasks) {
         }).join('');
 }
 
-// Groups Angus & Jenna's open tasks AND open maintenance issues together
-// under a heading per priority level, urgent → normal → low. Each item
-// only ever appears once, in the one group its own priority puts it in.
-function groupedByUrgencyHTML(tasks, issues) {
-    const combined = [
-        ...tasks.map(t => ({ item: t, kind: 'task' })),
-        ...issues.map(i => ({ item: i, kind: 'issue' })),
-    ];
-    if (combined.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks or issues</p></div>`;
+// Groups the Angus & Jenna tab's open maintenance issues under a heading
+// per priority level, urgent → normal.
+function groupedByUrgencyHTML(issues) {
+    if (issues.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open issues</p></div>`;
     const labels = { urgent: 'Urgent', normal: 'Normal', low: 'Low' };
     return Object.keys(TASK_PRIORITY_ORDER)
-        .map(p => ({ label: labels[p], entries: combined.filter(e => e.item.priority === p) }))
-        .filter(g => g.entries.length > 0)
-        .map(g => {
-            const rows = g.entries.map(e => e.kind === 'issue' ? issueItemHTML(e.item) : taskItemHTML(e.item)).join('');
-            return `<div class="done-toggle" style="margin-top:14px">${g.label}</div>
-                <div style="margin-top:8px">${rows}</div>`;
-        }).join('');
+        .map(p => ({ label: labels[p], items: issues.filter(i => i.priority === p) }))
+        .filter(g => g.items.length > 0)
+        .map(g => `<div class="done-toggle" style="margin-top:14px">${g.label}</div>
+                <div style="margin-top:8px">${g.items.map(issueItemHTML).join('')}</div>`)
+        .join('');
 }
 
 function renderTasks() {
-    const allTasks  = getTasks().filter(t => (t.assigned_to || 'angelica') === taskAudience);
+    // Every task is Angelica's — there's no owner/cleaner split for tasks,
+    // only for whether an item is a task or a maintenance issue.
+    const allTasks  = getTasks();
     const openTasks = allTasks.filter(t => t.status === 'open');
     // The 2-day purge only runs during a Supabase sync, so this stays capped
     // defensively in case a device has been offline a while.
     const doneTasks  = allTasks.filter(t => t.status === 'completed').slice(0, 15);
-    // Maintenance issues live only on the Angus & Jenna tab.
-    const openIssues = taskAudience === 'owners' ? getIssues().filter(i => !i.resolved) : [];
-    const totalOpen   = openTasks.length + openIssues.length;
+    const openIssues = getIssues().filter(i => !i.resolved);
+    const totalOpen   = taskAudience === 'angelica' ? openTasks.length : openIssues.length;
 
     const openHTML = taskAudience === 'angelica'
         ? groupedOpenTasksHTML(openTasks)
-        : groupedByUrgencyHTML(openTasks, openIssues);
+        : groupedByUrgencyHTML(openIssues);
 
-    const doneHTML = doneTasks.length > 0
+    const doneHTML = taskAudience === 'angelica' && doneTasks.length > 0
         ? `<div class="done-toggle" style="margin-top:14px">Completed (recent)</div>
            <div style="margin-top:8px">${doneTasks.map(taskItemHTML).join('')}</div>`
         : '';
@@ -2240,7 +2226,6 @@ function openAddTaskForm(id = null) {
     const task = id ? getTasks().find(t => t.id === id) : null;
     taskFormPriority   = task ? task.priority : 'normal';
     taskFormAddedBy    = task ? task.added_by : 'Angus';
-    taskFormAssignedTo = task ? (task.assigned_to || 'angelica') : taskAudience;
     taskFormLoc        = task ? task.location : null;
     document.getElementById('t-locs').innerHTML = LOCS.map(l => `
         <button class="pbtn${taskFormLoc===l.id?' sel':''}" id="tlb-${l.id}" onclick="setTaskLoc('${l.id}')">${l.name}</button>`).join('');
@@ -2250,10 +2235,6 @@ function openAddTaskForm(id = null) {
     ['Angus','Jenna'].forEach(w => {
         const b = document.getElementById(`tab-${w}`);
         if (b) b.classList.toggle('sel', w === taskFormAddedBy);
-    });
-    ['angelica','owners'].forEach(w => {
-        const b = document.getElementById(`tat-${w}`);
-        if (b) b.classList.toggle('sel', w === taskFormAssignedTo);
     });
     ['low','normal','urgent'].forEach(p => {
         const b = document.getElementById(`tpb-${p}`);
@@ -2413,14 +2394,6 @@ function setTaskAddedBy(who) {
     });
 }
 
-function setTaskAssignedTo(who) {
-    taskFormAssignedTo = who;
-    ['angelica','owners'].forEach(w => {
-        const b = document.getElementById(`tat-${w}`);
-        if (b) b.classList.toggle('sel', w === who);
-    });
-}
-
 async function submitTaskForm() {
     const title = document.getElementById('t-title').value.trim();
     if (!title) { toast('Enter a task title', 'e'); return; }
@@ -2455,7 +2428,6 @@ async function submitTaskForm() {
         tasks[idx].priority    = taskFormPriority;
         tasks[idx].due_date    = document.getElementById('t-due').value || null;
         tasks[idx].added_by    = taskFormAddedBy;
-        tasks[idx].assigned_to = taskFormAssignedTo;
         tasks[idx].location    = taskFormLoc;
         tasks[idx].photos      = photos;
         saveTasks(tasks);
@@ -2471,7 +2443,6 @@ async function submitTaskForm() {
             priority:         taskFormPriority,
             due_date:         document.getElementById('t-due').value || null,
             added_by:         taskFormAddedBy,
-            assigned_to:      taskFormAssignedTo,
             location:         taskFormLoc,
             photos,
             status:           'open',
