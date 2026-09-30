@@ -2105,6 +2105,27 @@ function setTaskAudience(who) {
     renderTasks();
 }
 
+const TASK_PRIORITY_ORDER = { urgent: 0, normal: 1, low: 2 };
+
+// Groups tasks by property (in LOCS order, then anything with no property
+// set last), and within each property group orders urgent → normal → low.
+function groupedOpenTasksHTML(tasks) {
+    if (tasks.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
+    const groups = LOCS.map(l => ({ id: l.id, label: l.name, tasks: [] }));
+    const other  = { id: null, label: 'Other', tasks: [] };
+    tasks.forEach(t => {
+        (groups.find(g => g.id === t.location) || other).tasks.push(t);
+    });
+    return [...groups, other]
+        .filter(g => g.tasks.length > 0)
+        .map(g => {
+            const sorted = g.tasks.slice().sort((a, b) =>
+                (TASK_PRIORITY_ORDER[a.priority] ?? 1) - (TASK_PRIORITY_ORDER[b.priority] ?? 1));
+            return `<div class="done-toggle" style="margin-top:14px">${escHtml(g.label)}</div>
+                <div style="margin-top:8px">${sorted.map(taskItemHTML).join('')}</div>`;
+        }).join('');
+}
+
 function renderTasks() {
     const allTasks  = getTasks().filter(t => (t.assigned_to || 'angelica') === taskAudience);
     const openTasks = allTasks.filter(t => t.status === 'open');
@@ -2113,9 +2134,11 @@ function renderTasks() {
     const doneTasks = allTasks.filter(t => t.status === 'completed').slice(0, 15);
     const issues    = getIssues().filter(i => !i.resolved);
 
-    const openHTML = openTasks.length > 0
-        ? openTasks.map(taskItemHTML).join('')
-        : `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
+    const openHTML = taskAudience === 'angelica'
+        ? groupedOpenTasksHTML(openTasks)
+        : (openTasks.length > 0
+            ? openTasks.map(taskItemHTML).join('')
+            : `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`);
 
     const doneHTML = doneTasks.length > 0
         ? `<div class="done-toggle" style="margin-top:14px">Completed (recent)</div>
