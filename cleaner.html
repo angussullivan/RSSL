@@ -2126,6 +2126,18 @@ function groupedOpenTasksHTML(tasks) {
         }).join('');
 }
 
+// Groups tasks under a heading per priority level, urgent → normal → low.
+function groupedByUrgencyHTML(tasks) {
+    if (tasks.length === 0) return `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`;
+    const labels = { urgent: 'Urgent', normal: 'Normal', low: 'Low' };
+    return Object.keys(TASK_PRIORITY_ORDER)
+        .map(p => ({ label: labels[p], tasks: tasks.filter(t => t.priority === p) }))
+        .filter(g => g.tasks.length > 0)
+        .map(g => `<div class="done-toggle" style="margin-top:14px">${g.label}</div>
+                <div style="margin-top:8px">${g.tasks.map(taskItemHTML).join('')}</div>`)
+        .join('');
+}
+
 function renderTasks() {
     const allTasks  = getTasks().filter(t => (t.assigned_to || 'angelica') === taskAudience);
     const openTasks = allTasks.filter(t => t.status === 'open');
@@ -2136,9 +2148,7 @@ function renderTasks() {
 
     const openHTML = taskAudience === 'angelica'
         ? groupedOpenTasksHTML(openTasks)
-        : (openTasks.length > 0
-            ? openTasks.map(taskItemHTML).join('')
-            : `<div class="empty" style="padding:12px 0"><p>No open tasks</p></div>`);
+        : groupedByUrgencyHTML(openTasks);
 
     const doneHTML = doneTasks.length > 0
         ? `<div class="done-toggle" style="margin-top:14px">Completed (recent)</div>
