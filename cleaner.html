@@ -438,8 +438,8 @@
             <textarea class="notes-inp" id="t-desc" rows="3" placeholder="Additional details…"></textarea>
         </div>
         <div class="ssec">
-            <label class="slbl">Photos (optional, up to 3)</label>
-            <div id="t-photos" style="display:flex;gap:8px"></div>
+            <label class="slbl">Photos (optional, up to 6)</label>
+            <div id="t-photos" style="display:flex;gap:8px;flex-wrap:wrap"></div>
             <input type="file" id="t-photo-input" accept="image/*" multiple style="display:none" onchange="onTaskPhotoPick(this)">
         </div>
         <button class="btn1" id="tov-submit" onclick="submitTaskForm()">Add Task</button>
@@ -2452,7 +2452,7 @@ function renderTaskPhotos() {
             <button type="button" onclick="removeTaskPhoto(${i})" title="Remove"
                 style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:.7rem;line-height:1;cursor:pointer">✕</button>
         </div>`).join('');
-    const addSlot = taskFormPhotos.length < 3
+    const addSlot = taskFormPhotos.length < 6
         ? `<button type="button" onclick="document.getElementById('t-photo-input').click()"
             style="width:64px;height:64px;border-radius:10px;border:2px dashed var(--clean);background:#fff;color:var(--text-light);font-size:1.5rem;cursor:pointer;flex-shrink:0">+</button>`
         : '';
@@ -2462,8 +2462,8 @@ function renderTaskPhotos() {
 async function onTaskPhotoPick(input) {
     const files = Array.from(input.files || []);
     input.value = '';
-    const room = 3 - taskFormPhotos.length;
-    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} allowed (max 3)`, 'e');
+    const room = 6 - taskFormPhotos.length;
+    if (files.length > room) toast(`Only ${room} more photo${room === 1 ? '' : 's'} allowed (max 6)`, 'e');
     for (const file of files.slice(0, room)) {
         try {
             const blob = await compressImage(file);
