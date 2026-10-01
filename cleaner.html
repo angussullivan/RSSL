@@ -447,6 +447,15 @@
     </div>
 </div>
 
+<!-- Task detail overlay (read-only — full, un-clipped text) -->
+<div class="sov" id="tdv" onclick="closeTaskDetailIfBg(event)">
+    <div class="ssheet">
+        <div class="shandle"></div>
+        <div class="stitle">Task Details</div>
+        <div id="tdv-body"></div>
+    </div>
+</div>
+
 <!-- Complete task overlay -->
 <div class="sov" id="cdov" onclick="closeCompleteTaskIfBg(event)">
     <div class="ssheet">
@@ -2337,11 +2346,11 @@ function taskItemHTML(task) {
     const overdue  = task.due_date && task.due_date < today && !isDone;
     const dueLabel = task.due_date ? `<div class="task-due ${overdue ? 'overdue' : 'ok'}">${overdue ? 'Overdue: ' : 'Due: '}${fmt(strToDate(task.due_date))}</div>` : '';
     const pencilSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>`;
-    const editBtn  = isDone ? '' : `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean);margin-right:4px" onclick="openAddTaskForm('${task.id}')" title="Edit">${pencilSvg}</button>`;
-    const doneBtn  = isDone ? '' : `<button class="rbtn" onclick="openCompleteTask('${task.id}')" title="Mark done">
+    const editBtn  = isDone ? '' : `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean);margin-right:4px" onclick="event.stopPropagation(); openAddTaskForm('${task.id}')" title="Edit">${pencilSvg}</button>`;
+    const doneBtn  = isDone ? '' : `<button class="rbtn" onclick="event.stopPropagation(); openCompleteTask('${task.id}')" title="Mark done">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
     </button>`;
-    const reopenBtn = isDone ? `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean)" onclick="reopenTask('${task.id}')" title="Not done yet — reopen">
+    const reopenBtn = isDone ? `<button class="rbtn" style="background:#f0f7fc;color:var(--ocean)" onclick="event.stopPropagation(); reopenTask('${task.id}')" title="Not done yet — reopen">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
     </button>` : '';
     const completionLine = isDone && task.completion_note
@@ -2351,11 +2360,11 @@ function taskItemHTML(task) {
     const locBadge = loc ? `<span class="task-badge loc">${loc.name}</span>` : '';
     const photosHTML = (task.photos && task.photos.length)
         ? `<div style="display:flex;gap:6px;margin-top:8px">${task.photos.map(p =>
-            `<img src="${escHtml(p.url)}" onclick="openPhotoViewer(this.src)" style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer">`).join('')}</div>`
+            `<img src="${escHtml(p.url)}" onclick="event.stopPropagation(); openPhotoViewer(this.src)" style="width:48px;height:48px;border-radius:8px;object-fit:cover;cursor:pointer">`).join('')}</div>`
         : '';
     return `<div class="task-item ${isDone ? 'done' : ''}">
         <div class="task-dot ${task.priority}"></div>
-        <div class="task-info">
+        <div class="task-info" onclick="openTaskDetail('${task.id}')" style="cursor:pointer">
             ${dueLabel}
             ${locBadge}<span class="task-badge ${task.priority}">${task.priority.charAt(0).toUpperCase()+task.priority.slice(1)}</span>
             <div class="task-title ${isDone ? 'done' : ''}">${escHtml(task.title)}</div>
@@ -2366,6 +2375,49 @@ function taskItemHTML(task) {
         </div>
         <div style="display:flex;align-items:center">${editBtn}${doneBtn}${reopenBtn}</div>
     </div>`;
+}
+
+// Read-only detail view for a single task — shows the title, description and
+// completion note in full (the card in the list clips long text to 2 lines).
+function openTaskDetail(id) {
+    const task = getTasks().find(t => t.id === id);
+    if (!task) return;
+    document.getElementById('tdv-body').innerHTML = taskDetailHTML(task);
+    document.getElementById('tdv').classList.add('on');
+}
+function closeTaskDetail() {
+    document.getElementById('tdv').classList.remove('on');
+}
+function closeTaskDetailIfBg(e) { if (e.target === document.getElementById('tdv')) closeTaskDetail(); }
+
+function taskDetailHTML(task) {
+    const isDone   = task.status === 'completed';
+    const today    = todayStr();
+    const overdue  = task.due_date && task.due_date < today && !isDone;
+    const dueLabel = task.due_date
+        ? `<div class="task-due ${overdue ? 'overdue' : 'ok'}" style="font-size:.78rem;margin-bottom:10px">${overdue ? 'Overdue: ' : 'Due: '}${fmt(strToDate(task.due_date))}</div>`
+        : '';
+    const loc      = LOCS.find(l => l.id === task.location);
+    const locBadge = loc ? `<span class="task-badge loc">${loc.name}</span>` : '';
+    const photosHTML = (task.photos && task.photos.length)
+        ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${task.photos.map(p =>
+            `<img src="${escHtml(p.url)}" onclick="openPhotoViewer(this.src)" style="width:72px;height:72px;border-radius:10px;object-fit:cover;cursor:pointer">`).join('')}</div>`
+        : '';
+    const actionBtns = isDone
+        ? `<button class="btn2" onclick="closeTaskDetail(); reopenTask('${task.id}')">Not done yet — reopen</button>`
+        : `<button class="btn1" onclick="closeTaskDetail(); openAddTaskForm('${task.id}')">Edit</button>
+           <button class="btn2" onclick="closeTaskDetail(); openCompleteTask('${task.id}')">Mark Done</button>`;
+    return `
+        ${dueLabel}
+        <div style="margin-bottom:12px">${locBadge}<span class="task-badge ${task.priority}">${task.priority.charAt(0).toUpperCase()+task.priority.slice(1)}</span></div>
+        <div class="task-title ${isDone ? 'done' : ''}" style="font-size:1.05rem;margin-bottom:10px">${escHtml(task.title)}</div>
+        ${task.description ? `<div style="font-size:.9rem;color:var(--text);line-height:1.5;white-space:pre-wrap;margin-bottom:10px">${escHtml(task.description)}</div>` : ''}
+        ${isDone && task.completion_note ? `<div style="font-size:.88rem;color:var(--text-light);font-style:italic;line-height:1.5;white-space:pre-wrap;margin-bottom:10px">"${escHtml(task.completion_note)}"</div>` : ''}
+        ${photosHTML}
+        <div class="task-meta" style="margin-top:14px;margin-bottom:18px">Added by ${escHtml(task.added_by)} · ${fmt(strToDate(task.created_at.slice(0,10)))}</div>
+        ${actionBtns}
+        <button class="btn2" style="margin-top:8px" onclick="closeTaskDetail()">Close</button>
+    `;
 }
 
 function openTailoredAddForm() {
